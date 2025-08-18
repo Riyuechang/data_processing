@@ -9,7 +9,10 @@ from tqdm import tqdm
 
 
 def find_title_id(page_element: element.PageElement) -> str | None:
-    if type(page_element) is element.NavigableString or type(page_element) is element.Comment:
+    if (type(page_element) is element.NavigableString
+         or type(page_element) is element.Comment
+         or type(page_element) is element.RubyTextString
+        ):
         return None
 
     title_id = page_element.get("id")
@@ -17,10 +20,9 @@ def find_title_id(page_element: element.PageElement) -> str | None:
     if title_id:
         return title_id
 
-    if page_element.name == "p":
-        return None
-
-    for content in page_element.contents:
+    page_element_contents = page_element.contents.copy()
+    page_element_contents.reverse()
+    for content in page_element_contents:
         title_id = find_title_id(content)
         
         if title_id:
@@ -168,7 +170,8 @@ if __name__ == "__main__":
         json.dump(data, file, indent=4, ensure_ascii=False)
     """
 
-    EBOOK_NAME = "Otonari_no_Tenshisama_ni_Itsu_v01-08_epub"
+    EBOOK_NAME = "test"
+    #EBOOK_NAME = "Otonari_no_Tenshisama_ni_Itsu_v01-08_epub"
     #EBOOK_NAME = "Otonari_no_Tenshisama_ni_Itsu_v05.5_08.5_epub"
     #EBOOK_NAME = "Otonari_no_Tenshisama_ni_Itsu_v09-10_epub"
     #EBOOK_NAME = "Mushoku_Isekai_Dasu_v01-26_epub"
