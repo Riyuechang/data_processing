@@ -1,3 +1,4 @@
+import os
 import json
 import statistics
 
@@ -10,7 +11,7 @@ from transformers.cache_utils import DynamicCache
 THRESHOLD = 2
 THRESHOLD_DECAY = 0.99
 
-SLIDING_WINDOW_SIZE = 8192
+SLIDING_WINDOW_SIZE = 4096
 MAX_SENTENCE_LEN = 256
 MAX_CHUNK_SIZE = 768
 
@@ -18,10 +19,10 @@ MAX_CHUNK_SIZE = 768
 MODEL_NAME = "llm-jp-3.1-1.8b"
 MODEL_PATH = f"/media/ifw/GameFile/linux_cache/LLMModel/{MODEL_NAME}"
 
-NOVEL_NAME = ""
+NOVEL_NAME = "Heru_modo_Yarikomizuki_no_gema_v01-06_epub"
 NOVEL_PATH = f"./epub_chapter_content/{NOVEL_NAME}"
 
-DATA_OUTPUT_PATH = "./output/[依空まつり] サイレント・ウィッチ IX 沈黙の魔女の隠しごと_perplexity_chunking.json"
+SAVE_DIR_PATH = f"./output/{NOVEL_NAME}"
 
 
 def total_proportion(numbers: list[int | float]):
@@ -110,7 +111,7 @@ def perplexity_distribution(
     distributions = []
     past_key_values = None
 
-    for sentence_index in tqdm(range(len(sentences))):
+    for sentence_index in range(len(sentences)):
         word_count = 0
 
         for context_index in range(sentence_index + 1):
@@ -128,10 +129,6 @@ def perplexity_distribution(
             return_loss=return_loss
         )
         distributions.append(perplexity)
-
-        #print(sentences[sentence_index - context_index:sentence_index + 1], 
-        #      len("".join(sentences[sentence_index - context_index:sentence_index + 1])),
-        #      len(sentences[sentence_index - context_index:sentence_index + 1]))
 
     return distributions
 
@@ -210,45 +207,20 @@ if __name__ == "__main__":
         ),
     )
 
-    text = """シルフィ 視点
-    ルディがアイシャと別れたあと
-    「大事な話があるんだ、大事なね、」
-    と決心のついたような顔で言った。
-    ボクとロキシーとエリスは何だろう、もしかしてまた増えるのかなと思い、聞き返した。
-    「大事な話？」
-    ルディは
-    「うんとっても大事な話なんだ。
-    夕食後3人とも寝室に来てくれないか。」
-    と言った。
-    「うん」
-    そう言いながら、ボクらは四人で夕日の中を歩いて行った。
+    if not os.path.isdir(SAVE_DIR_PATH):
+        os.mkdir(SAVE_DIR_PATH)
 
-    ルーデウス視点
-    俺は、アイシャと前世のことについて話したことを思いながら、リーリャとシルフィの美味しいカレーライスに似たものと、
-    「今まで作ってくれていたアイシャ姉の代わりに作る！！」と張り切っていたクリスが作った、でこぼこだが世界一おいしいクッキーを食べた。
+    novel_file_list = [dir for dir in os.listdir(NOVEL_PATH) if dir.endswith(".json")]
 
-    """
+    tqdm_progress = tqdm(novel_file_list)
+    for novel_file in tqdm_progress:
+        tqdm_progress.set_description(novel_file)
 
-    #perplexity = calculate_perplexity(text)
-    #print(perplexity)
+        with open(f"{NOVEL_PATH}/{novel_file}", "r", encoding="utf-8") as file:
+            dataset: list[dict[str, str]] = json.load(file)
 
-    with open(DATA_PATH, "r", encoding="utf-8") as file:
-        data: str = file.read()
-        
-    """
-    sentences = sentence_segmentation(data)
-    distribution = perplexity_distribution(sentences, use_cache=True, return_loss=True)
-    proportion = total_proportion(distribution[1:])
-    median = statistics.median(proportion)
+            for data in dataset:
+                data["content"] = text_chunking(data["content"], THRESHOLD)
 
-    ans = [number for number in proportion if number > median * THRESHOLD]
-
-    print(median * THRESHOLD)
-    print(ans)
-    print(len(ans))
-    """
-
-    data_chunks = text_chunking(data, THRESHOLD)
-
-    with open(DATA_OUTPUT_PATH, 'w', encoding='utf-8') as file:
-        json.dump(data_chunks, file, indent=4, ensure_ascii=False)
+        with open(f"{SAVE_DIR_PATH}/{novel_file}", 'w', encoding='utf-8') as file:
+            json.dump(dataset, file, indent=4, ensure_ascii=False)
