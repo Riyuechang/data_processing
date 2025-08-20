@@ -77,7 +77,6 @@ def extract_content(ebook: epub.EpubBook) -> list[dict[str,str]]:
                 "file_path": href_split[0]
             }
         )
-    print(title_data_list)
 
     if not any(title_data["title_id"] for title_data in title_data_list):
         contents: list[dict[str, str]] = []
@@ -197,6 +196,7 @@ if __name__ == "__main__":
 
         ebook = epub.read_epub(f"{EBOOK_PATH}/{epub_file}")
         data = extract_content(ebook)
+        data_clean = [chapter for chapter in data if chapter["content"]]
 
         with open(f"{SAVE_DIR_PATH}/{epub_file.rstrip('.epub')}.json", 'w', encoding='utf-8') as file:
-            json.dump(data, file, indent=4, ensure_ascii=False)
+            json.dump(data_clean, file, indent=4, ensure_ascii=False)
