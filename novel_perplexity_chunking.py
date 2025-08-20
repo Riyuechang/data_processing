@@ -19,7 +19,8 @@ MAX_CHUNK_SIZE = 768
 MODEL_NAME = "llm-jp-3.1-1.8b"
 MODEL_PATH = f"/media/ifw/GameFile/linux_cache/LLMModel/{MODEL_NAME}"
 
-NOVEL_NAME = "Heru_modo_Yarikomizuki_no_gema_v01-06_epub"
+NOVEL_NAME = "test"
+#NOVEL_NAME = "Heru_modo_Yarikomizuki_no_gema_v01-06_epub"
 NOVEL_PATH = f"./epub_chapter_content/{NOVEL_NAME}"
 
 SAVE_DIR_PATH = f"./output/{NOVEL_NAME}"
@@ -91,7 +92,27 @@ def calculate_perplexity(
     return_loss: bool=False
 ) -> tuple[float, DynamicCache]:
     with torch.no_grad():
-        inputs = tokenizer(text, return_tensors="pt", add_special_tokens=True if past_key_values else False).to("cuda")
+        inputs = tokenizer(
+            text, 
+            return_tensors="pt", 
+            padding=True, 
+            add_special_tokens=True if past_key_values else False
+        ).to("cuda")
+
+        if past_key_values and past_key_values.get_seq_length() + len(inputs["input_ids"]) > SLIDING_WINDOW_SIZE:
+            new_cache = DynamicCache()
+            for index in range(len(past_key_values.layers)):
+                new_key = past_key_values.layers[index].keys[:, :, -SLIDING_WINDOW_SIZE + len(inputs["input_ids"][0]):, :]
+                new_value = past_key_values.layers[index].values[:, :, -SLIDING_WINDOW_SIZE + len(inputs["input_ids"][0]):, :]
+
+                new_cache.update(
+                    key_states=new_key, 
+                    value_states=new_value, 
+                    layer_idx=index
+                )
+
+            past_key_values = new_cache
+
         outputs = model(
             **inputs, 
             labels=inputs["input_ids"], 
@@ -111,19 +132,9 @@ def perplexity_distribution(
     distributions = []
     past_key_values = None
 
-    for sentence_index in range(len(sentences)):
-        word_count = 0
-
-        for context_index in range(sentence_index + 1):
-            if word_count + len(sentences[sentence_index - context_index]) > SLIDING_WINDOW_SIZE:
-                if context_index:
-                    context_index -= 1
-                break
-
-            word_count += len(sentences[sentence_index - context_index])
-        
+    for sentence in sentences:
         perplexity, past_key_values = calculate_perplexity(
-            sentences[sentence_index] if use_cache else "".join(sentences[sentence_index - context_index:sentence_index + 1]),
+            sentence,
             past_key_values=past_key_values if use_cache else None,
             use_cache=use_cache,
             return_loss=return_loss
