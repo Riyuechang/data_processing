@@ -25,7 +25,8 @@ TOKENIZER_NAME = "Sakura-1.5B-Qwen2.5-v1.0-HF"
 TOKENIZER_PATH = f"/media/ifw/GameFile/linux_cache/LLMModel/{TOKENIZER_NAME}"
 
 #NOVEL_NAME = "test"
-NOVEL_NAME = "Heru_modo_Yarikomizuki_no_gema_v01-06_epub"
+#NOVEL_NAME = "Heru_modo_Yarikomizuki_no_gema_v01-06_epub"
+NOVEL_NAME = "Heru_modo_Yarikomizuki_no_gema_v07-08_epub"
 NOVEL_PATH = f"./output/{NOVEL_NAME}"
 
 USE_GLOSSARY = True
