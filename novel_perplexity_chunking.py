@@ -8,9 +8,6 @@ from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
 from transformers.cache_utils import DynamicCache
 
 
-THRESHOLD = 2
-THRESHOLD_DECAY = 0.99
-
 SLIDING_WINDOW_SIZE = 4096
 MAX_SENTENCE_LEN = 256
 MAX_CHUNK_SIZE = 768
@@ -129,7 +126,7 @@ def perplexity_distribution(
     use_cache: bool=True,
     return_loss: bool=False
 ):
-    distributions = []
+    distributions: list[float] = []
     past_key_values = None
 
     for sentence in sentences:
@@ -143,65 +140,36 @@ def perplexity_distribution(
 
     return distributions
 
-def re_chunking(
-    chunks: list[list[tuple[str, float]]],
-    median_perplexity: float, 
-    threshold: float
-):
-    is_exceeding_limits = False
-    for chunk in chunks:
-        if sum([len(sentence) for sentence, _ in chunk]) > MAX_CHUNK_SIZE:
-            is_exceeding_limits = True
-            break
-    
-    if not is_exceeding_limits:
-        return chunks
-    
-    new_chunks: list[list[tuple[str, float]]] = []
-    for chunk in chunks:
-        if sum([len(sentence) for sentence, _ in chunk]) <= MAX_CHUNK_SIZE:
-            new_chunks.append(chunk)
-            continue
-        
-        new_chunk: list[tuple[str, float]] = [chunk[0]]
-
-        for sentence, perplexity in chunk[1:]:
-            if perplexity > median_perplexity * threshold:
-                new_chunks.append(new_chunk)
-                new_chunk = []
-            
-            new_chunk.append((sentence, perplexity))
-
-        if new_chunk:
-            new_chunks.append(new_chunk)
-    
-    return re_chunking(new_chunks, median_perplexity, threshold * THRESHOLD_DECAY)
-
 def text_chunking(
-    text: str, 
-    threshold: float
-):
-    sentences = sentence_segmentation(text)
-    distribution = perplexity_distribution(sentences, use_cache=True, return_loss=True)
-    proportion = total_proportion(distribution[1:])
-    median_perplexity = statistics.median(proportion)
-
-    chunks: list[list[tuple[str, float]]] = []
-    new_chunk: list[tuple[str, float]] = [(sentences[0], 0)]
-    for sentence, perplexity in zip(sentences[1:], proportion):
-        if perplexity > median_perplexity * threshold:
-            chunks.append(new_chunk)
-            new_chunk = []
-        
-        new_chunk.append((sentence, perplexity))
+    chunks: list[list[str]], 
+    chunks_perplexitys: list[list[float]]
+) -> list[str]:
+    not_exceeding_limits = True
+    for chunk in  chunks:
+        if sum([len(sentence) for sentence in chunk]) > MAX_CHUNK_SIZE:
+            not_exceeding_limits = False
     
-    if new_chunk:
-        chunks.append(new_chunk)
-
-    final_chunks = re_chunking(chunks, median_perplexity, threshold * THRESHOLD_DECAY)
-    final_chunks_clean = [[chunk for chunk, _ in final_chunk] for final_chunk in final_chunks]
+    if not_exceeding_limits:
+        return ["".join(chunk) for chunk in chunks]
     
-    return ["".join(final_chunk) for final_chunk in final_chunks_clean]
+    new_chunks: list[list[str]] = []
+    new_chunks_perplexitys: list[list[float]] = []
+    for chunk, perplexitys in zip(chunks, chunks_perplexitys):
+        if sum([len(sentence) for sentence in chunk]) <= MAX_CHUNK_SIZE:
+            new_chunks.append(chunk)
+            new_chunks_perplexitys.append(perplexitys)
+            continue
+
+        _, perplexity_index = max([(perplexity, index) for index, perplexity in enumerate(perplexitys)])
+
+        new_chunks.extend([chunk[:perplexity_index], chunk[perplexity_index:]])
+        new_perplexitys_1 = perplexitys[:perplexity_index]
+        new_perplexitys_2 = perplexitys[perplexity_index:]
+        new_perplexitys_1[0] = 0
+        new_perplexitys_2[0] = 0
+        new_chunks_perplexitys.extend([new_perplexitys_1, new_perplexitys_2])
+    
+    return text_chunking(new_chunks, new_chunks_perplexitys)
 
 
 if __name__ == "__main__":
@@ -231,7 +199,10 @@ if __name__ == "__main__":
             dataset: list[dict[str, str]] = json.load(file)
 
             for data in dataset:
-                data["content"] = text_chunking(data["content"], THRESHOLD)
+                sentences = sentence_segmentation(data["content"])
+                perplexitys = perplexity_distribution(sentences, use_cache=True, return_loss=True)
+                perplexitys[0] = 0
+                data["content"] = text_chunking([sentences], [perplexitys])
 
         with open(f"{SAVE_DIR_PATH}/{novel_file}", 'w', encoding='utf-8') as file:
             json.dump(dataset, file, indent=4, ensure_ascii=False)
