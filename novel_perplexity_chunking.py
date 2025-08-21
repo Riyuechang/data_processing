@@ -1,6 +1,5 @@
 import os
 import json
-import statistics
 
 import torch
 from tqdm import tqdm
@@ -16,8 +15,8 @@ MAX_CHUNK_SIZE = 768
 MODEL_NAME = "llm-jp-3.1-1.8b"
 MODEL_PATH = f"/media/ifw/GameFile/linux_cache/LLMModel/{MODEL_NAME}"
 
-NOVEL_NAME = "test"
-#NOVEL_NAME = "Heru_modo_Yarikomizuki_no_gema_v01-06_epub"
+#NOVEL_NAME = "test"
+NOVEL_NAME = "Heru_modo_Yarikomizuki_no_gema_v01-06_epub"
 NOVEL_PATH = f"./epub_chapter_content/{NOVEL_NAME}"
 
 SAVE_DIR_PATH = f"./output/{NOVEL_NAME}"

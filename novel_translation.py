@@ -1,6 +1,6 @@
+import os
 import json
 
-import torch
 from tqdm import tqdm
 from vllm import LLMEngine, SamplingParams
 from vllm.engine.arg_utils import EngineArgs
@@ -9,11 +9,11 @@ from transformers import AutoTokenizer
 
 MAX_TOKENS = 2048 #8192
 TEMPERATURE = 0.1
-MIN_P = 0.3
-TOP_P = 0.8
+MIN_P = 0.1
+TOP_P = 0.3
 
-MAX_REQUESTS = 128 #8 32256 
-MAX_BATCHED_TOKENS = 32768 #8192 65536 16384
+MAX_REQUESTS = 32 #8 64 128 256 
+MAX_BATCHED_TOKENS = 32768 #8192 16384 65536
 VRAM_UTILIZATION = 0.95
 
 MODEL_NAME = "Sakura-7B-Qwen2.5-v1.0-GGUF/sakura-7b-qwen2.5-v1.0-iq4xs.gguf"
@@ -23,8 +23,10 @@ MODEL_PATH = f"/media/ifw/GameFile/linux_cache/LLMModel/{MODEL_NAME}"
 TOKENIZER_NAME = "Sakura-1.5B-Qwen2.5-v1.0-HF"
 TOKENIZER_PATH = f"/media/ifw/GameFile/linux_cache/LLMModel/{TOKENIZER_NAME}"
 
-NOVEL_PATH = "./output/[依空まつり] サイレント・ウィッチ IX 沈黙の魔女の隠しごと_perplexity_chunking.json"
-DATA_OUTPUT_PATH = "./output/[依空まつり] サイレント・ウィッチ IX 沈黙の魔女の隠しごと_tw_translation.txt"
+NOVEL_NAME = "Heru_modo_Yarikomizuki_no_gema_v01-06_epub"
+NOVEL_PATH = f"./output/{NOVEL_NAME}"
+
+SAVE_DIR_PATH = f"./translation/{NOVEL_NAME}"
 
 
 def vllm_add_request(input_text: str, request_id: str):
@@ -73,26 +75,38 @@ engine_args = EngineArgs(
 llm_engine = LLMEngine.from_engine_args(engine_args)
 tokenizer = AutoTokenizer.from_pretrained(TOKENIZER_PATH)
 
-with open(NOVEL_PATH, "r", encoding="utf-8") as file:
-    data: list[str] = json.load(file)
+if not os.path.isdir(SAVE_DIR_PATH):
+    os.mkdir(SAVE_DIR_PATH)
 
-for index, sentence in enumerate(data):
-    vllm_add_request(
-        input_text=sentence,
-        request_id=f"{index}"
-    )
+novel_file_list = [dir for dir in os.listdir(NOVEL_PATH) if dir.endswith(".json")]
 
-with tqdm(desc="正在生成中...", total=len(data)) as tqdm_ber:
+tqdm_progress = tqdm(novel_file_list)
+for novel_file in tqdm_progress:
+    tqdm_progress.set_description(novel_file)
+
+    with open(f"{NOVEL_PATH}/{novel_file}", "r", encoding="utf-8") as file:
+        dataset: list[dict[str, str | list[str]]] = json.load(file)
+
+    for chapter_index, chapter in enumerate(dataset):
+        for chunk_index, chunk in enumerate(chapter["content"]):
+            vllm_add_request(
+                input_text=chunk,
+                request_id=f"{chapter_index}:{chunk_index}"
+            )
+
     while True:
         request = llm_engine.step()
 
         for output in request:
             if output.finished:
-                data[int(output.request_id)] = output.outputs[0].text
-                tqdm_ber.update()
+                chapter_index, chunk_index = output.request_id.split(":")
+                dataset[int(chapter_index)]["content"][int(chunk_index)] = output.outputs[0].text
 
         if not llm_engine.has_unfinished_requests():
             break
+    
+    for chapter in dataset:
+        chapter["content"] = "".join(chapter["content"])
 
-with open(DATA_OUTPUT_PATH, 'w', encoding='utf-8') as file:
-    file.write("".join(data))
+    with open(f"{SAVE_DIR_PATH}/{novel_file}", 'w', encoding='utf-8') as file:
+        json.dump(dataset, file, indent=4, ensure_ascii=False)
