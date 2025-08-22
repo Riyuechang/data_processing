@@ -57,14 +57,20 @@ def only_numbers(text: str):
 def extract_content(ebook: epub.EpubBook) -> list[dict[str,str]]:
     ebook_content = [content for content in list(ebook.get_items_of_type(ebooklib.ITEM_DOCUMENT)) if only_numbers(content.file_name)]
 
-    catalog_page_path = ebook.toc[0].href.split("#")[0]
+    catalog_page_index = 0
+    catalog_page_path = ebook.toc[catalog_page_index].href.split("#")[0]
+
+    if not only_numbers(catalog_page_path):
+        catalog_page_index = 1
+        catalog_page_path = ebook.toc[catalog_page_index].href.split("#")[0]
+
     catalog_page_content = [content for content in ebook_content if content.file_name == catalog_page_path][0]
     soup = BeautifulSoup(catalog_page_content.get_content().decode("utf-8"), 'html.parser')
     a_tag = soup.body.div.find_all("a")
     catalog_href = [page_element["href"] for page_element in a_tag]
 
     title_data_list: list[dict[str, str | None]] = []
-    for href, toc in zip(catalog_href, ebook.toc[1:]):
+    for href, toc in zip(catalog_href, ebook.toc[catalog_page_index + 1:]):
         href_split = href.split("#")
 
         if not only_numbers(href_split[0]):
@@ -130,7 +136,18 @@ def extract_content(ebook: epub.EpubBook) -> list[dict[str,str]]:
     chapters_iterable = iter(chapters_clean)
     chapter_data = next(chapters_iterable)
 
-    contents: list[dict[str, str]] = []
+    contents: list[dict[str, str]] = [
+        {
+            "title": ebook.toc[catalog_page_index].title,
+            "content": "\n".join(
+                [
+                    toc.title 
+                    for toc in ebook.toc[catalog_page_index + 1:] 
+                    if toc.title in [title_data["title"] for title_data in title_data_list]
+                ]
+            )
+        }
+    ]
     for title_data in title_data_list:
         content_data: dict[str, str] = {
             "title": title_data["title"],
@@ -177,8 +194,8 @@ if __name__ == "__main__":
     """
 
     #EBOOK_NAME = "Heru_modo_Yarikomizuki_no_gema_v01-06_epub"
-    EBOOK_NAME = "Heru_modo_Yarikomizuki_no_gema_v07-08_epub"
-    #EBOOK_NAME = "test"
+    #EBOOK_NAME = "Heru_modo_Yarikomizuki_no_gema_v07-08_epub"
+    EBOOK_NAME = "test"
     #EBOOK_NAME = "Otonari_no_Tenshisama_ni_Itsu_v01-08_epub"
     #EBOOK_NAME = "Otonari_no_Tenshisama_ni_Itsu_v05.5_08.5_epub"
     #EBOOK_NAME = "Otonari_no_Tenshisama_ni_Itsu_v09-10_epub"
