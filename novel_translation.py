@@ -24,9 +24,9 @@ MODEL_PATH = f"/media/ifw/GameFile/linux_cache/LLMModel/{MODEL_NAME}"
 TOKENIZER_NAME = "Sakura-1.5B-Qwen2.5-v1.0-HF"
 TOKENIZER_PATH = f"/media/ifw/GameFile/linux_cache/LLMModel/{TOKENIZER_NAME}"
 
-#NOVEL_NAME = "test"
+NOVEL_NAME = "test"
 #NOVEL_NAME = "Heru_modo_Yarikomizuki_no_gema_v01-06_epub"
-NOVEL_NAME = "Heru_modo_Yarikomizuki_no_gema_v07-08_epub"
+#NOVEL_NAME = "Heru_modo_Yarikomizuki_no_gema_v07-08_epub"
 NOVEL_PATH = f"./output/{NOVEL_NAME}"
 
 USE_GLOSSARY = True
@@ -115,13 +115,13 @@ for novel_file in tqdm_progress:
         for output in request:
             if output.finished:
                 chapter_index, chunk_index = output.request_id.split(":")
-                dataset[int(chapter_index)]["content"][int(chunk_index)] = output.outputs[0].text
+                dataset[int(chapter_index)]["content"][int(chunk_index)] = {
+                    "jp": dataset[int(chapter_index)]["content"][int(chunk_index)],
+                    "translation": output.outputs[0].text
+                }
 
         if not llm_engine.has_unfinished_requests():
             break
-    
-    for chapter in dataset:
-        chapter["content"] = "".join(chapter["content"])
 
     with open(f"{SAVE_DIR_PATH}/{novel_file}", 'w', encoding='utf-8') as file:
         json.dump(dataset, file, indent=4, ensure_ascii=False)
