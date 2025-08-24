@@ -1,6 +1,7 @@
 import os
 import json
 
+import opencc
 from tqdm import tqdm
 from vllm import LLMEngine, SamplingParams
 from vllm.engine.arg_utils import EngineArgs
@@ -13,7 +14,7 @@ MIN_P = 0.1
 TOP_P = 0.3
 FREQUENCY_PENALTY = 0.2
 
-MAX_REQUESTS = 32 #8 64 128 256 
+MAX_REQUESTS = 48 #32 #8 64 128 256 
 MAX_BATCHED_TOKENS = 32768 #8192 16384 65536
 VRAM_UTILIZATION = 0.95
 
@@ -80,6 +81,8 @@ engine_args = EngineArgs(
 llm_engine = LLMEngine.from_engine_args(engine_args)
 tokenizer = AutoTokenizer.from_pretrained(TOKENIZER_PATH)
 
+opencc_converter = opencc.OpenCC('tw2s.json')
+
 if not os.path.isdir(SAVE_DIR_PATH):
     os.mkdir(SAVE_DIR_PATH)
 
@@ -90,7 +93,7 @@ if USE_GLOSSARY:
         glossary_dict: list[dict[str, str]] = json.load(file)
     
     glossary_list = [
-        f"{glossary['jp']}->{glossary['tw']} #{glossary['info']}" if glossary["info"] else f"{glossary['jp']}->{glossary['tw']}"
+        f"{glossary['jp']}->{opencc_converter.convert(glossary['tw'])} #{opencc_converter.convert(glossary['info'])}" if glossary["info"] else f"{glossary['jp']}->{opencc_converter.convert(glossary['tw'])}"
         for glossary in glossary_dict
     ]
     glossary_prompt = "\n".join(glossary_list)
@@ -104,9 +107,14 @@ for novel_file in tqdm_progress:
 
     for chapter_index, chapter in enumerate(dataset):
         for chunk_index, chunk in enumerate(chapter["content"]):
+            if chunk[-1] == "\n":
+                newline = "newline"
+            else:
+                newline = "None"
+
             vllm_add_request(
-                input_text=chunk,
-                request_id=f"{chapter_index}:{chunk_index}"
+                input_text=chunk.strip("\n"),
+                request_id=f"{chapter_index}:{chunk_index}#{newline}"
             )
 
     while True:
@@ -114,10 +122,17 @@ for novel_file in tqdm_progress:
 
         for output in request:
             if output.finished:
-                chapter_index, chunk_index = output.request_id.split(":")
+                data_index, newline = output.request_id.split("#")
+                chapter_index, chunk_index = data_index.split(":")
+
+                if newline == "newline":
+                    add_newline = "\n"
+                else:
+                    add_newline = ""
+
                 dataset[int(chapter_index)]["content"][int(chunk_index)] = {
                     "jp": dataset[int(chapter_index)]["content"][int(chunk_index)],
-                    "translation": output.outputs[0].text
+                    "translation": output.outputs[0].text + add_newline
                 }
 
         if not llm_engine.has_unfinished_requests():
