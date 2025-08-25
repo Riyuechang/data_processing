@@ -14,7 +14,7 @@ MIN_P = 0.1
 TOP_P = 0.3
 FREQUENCY_PENALTY = 0.2
 
-MAX_REQUESTS = 48 #32 #8 64 128 256 
+MAX_REQUESTS = 32 #8 64 128 256 
 MAX_BATCHED_TOKENS = 32768 #8192 16384 65536
 VRAM_UTILIZATION = 0.95
 
@@ -25,9 +25,9 @@ MODEL_PATH = f"/media/ifw/GameFile/linux_cache/LLMModel/{MODEL_NAME}"
 TOKENIZER_NAME = "Sakura-1.5B-Qwen2.5-v1.0-HF"
 TOKENIZER_PATH = f"/media/ifw/GameFile/linux_cache/LLMModel/{TOKENIZER_NAME}"
 
-NOVEL_NAME = "test"
+#NOVEL_NAME = "test"
 #NOVEL_NAME = "Heru_modo_Yarikomizuki_no_gema_v01-06_epub"
-#NOVEL_NAME = "Heru_modo_Yarikomizuki_no_gema_v07-08_epub"
+NOVEL_NAME = "Heru_modo_Yarikomizuki_no_gema_v07-08_epub"
 NOVEL_PATH = f"./output/{NOVEL_NAME}"
 
 USE_GLOSSARY = True

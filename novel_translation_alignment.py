@@ -4,8 +4,8 @@ import json
 from tqdm import tqdm
 
 
-NOVEL_NAME = "test"
-#NOVEL_NAME = "Heru_modo_Yarikomizuki_no_gema_v01-06_epub"
+#NOVEL_NAME = "test"
+NOVEL_NAME = "Heru_modo_Yarikomizuki_no_gema_v01-06_epub"
 #NOVEL_NAME = "Heru_modo_Yarikomizuki_no_gema_v07-08_epub"
 NOVEL_PATH = f"./translation/{NOVEL_NAME}"
 
@@ -29,4 +29,4 @@ for novel_translation_file in tqdm_progress:
                 if chapter["content"][content_index]["jp"][-1] == "\n":
                     count += 1
 
-    print(count)
+    print(novel_translation_file, count)
