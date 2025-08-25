@@ -9,8 +9,8 @@ from tqdm import tqdm
 
 
 #EBOOK_NAME = "Heru_modo_Yarikomizuki_no_gema_v01-06_epub"
-#EBOOK_NAME = "Heru_modo_Yarikomizuki_no_gema_v07-08_epub"
-EBOOK_NAME = "test"
+EBOOK_NAME = "Heru_modo_Yarikomizuki_no_gema_v07-08_epub"
+#EBOOK_NAME = "test"
 #EBOOK_NAME = "Otonari_no_Tenshisama_ni_Itsu_v01-08_epub"
 #EBOOK_NAME = "Otonari_no_Tenshisama_ni_Itsu_v05.5_08.5_epub"
 #EBOOK_NAME = "Otonari_no_Tenshisama_ni_Itsu_v09-10_epub"
@@ -69,66 +69,32 @@ def only_numbers(text: str):
         return float(number)
 
 def replace_translation(ebook: epub.EpubBook, translation_dataaet: list[dict[str, str | list[dict[str, str]]]]):
-    ebook_content = [content for content in list(ebook.get_items_of_type(ebooklib.ITEM_DOCUMENT)) if only_numbers(content.file_name)]
+    ebook_content = [
+        content 
+        for content in list(ebook.get_items_of_type(ebooklib.ITEM_DOCUMENT)) 
+        if only_numbers(content.file_name) or "toc" in content.file_name
+    ]
 
-    catalog_page_index = 0
-    catalog_page_path = ebook.toc[catalog_page_index].href.split("#")[0]
+    p_tag_dict = {
+        "soup": [],
+        "p_tag": []
+    }
+    for chapter_content in ebook_content:
+        p_tag_dict["soup"].append(BeautifulSoup(chapter_content.get_body_content().decode("utf-8"), 'html.parser'))
+        p_tag_dict["p_tag"].extend(p_tag_dict["soup"][-1].find_all("p"))
+        p_tag_dict["p_tag"].extend(p_tag_dict["soup"][-1].find_all("h1"))
+    
+    p_tag_dict["p_tag_text"] = [p_tag.get_text() for p_tag in p_tag_dict["p_tag"]]
 
-    if not only_numbers(catalog_page_path):
-        catalog_page_index = 1
-        catalog_page_path = ebook.toc[catalog_page_index].href.split("#")[0]
-
-    catalog_page_content = [content for content in ebook_content if content.file_name == catalog_page_path][0]
-    soup = BeautifulSoup(catalog_page_content.get_content().decode("utf-8"), 'html.parser')
-    a_tag = soup.body.div.find_all("a")
-    catalog_href = [page_element["href"] for page_element in a_tag]
-
-    title_data_list: list[dict[str, str]] = [
-            {
-                "title": ebook.toc[catalog_page_index].title, 
-                "file_path": catalog_page_path
-            }
-        ]
-    for href, toc in zip(catalog_href, ebook.toc[catalog_page_index + 1:]):
-        href_split = href.split("#")
-
-        if not only_numbers(href_split[0]):
-            continue
-
-        title_data_list.append(
-            {
-                "title": toc.title, 
-                "file_path": href_split[0]
-            }
-        )
-
-    for title_data_index, chapter in zip(range(len(title_data_list)), translation_dataaet):
-        chapter_ebook_content = [
-            content 
-            for content in ebook_content 
-            if abs(only_numbers(content.file_name)) >= abs(only_numbers(title_data_list[title_data_index]["file_path"])) and (
-                title_data_index + 1 == len(title_data_list)
-                or abs(only_numbers(content.file_name)) <= abs(only_numbers(title_data_list[title_data_index + 1]["file_path"]))
-            )
-        ]
-
-        p_tag_dict = {
-            "soup": [],
-            "p_tag": []
-        }
-        for chapter_content in chapter_ebook_content:
-            p_tag_dict["soup"].append(BeautifulSoup(chapter_content.get_body_content().decode("utf-8"), 'html.parser'))
-            p_tag_dict["p_tag"].extend(p_tag_dict["soup"][-1].find_all("p"))
-        
-        p_tag_dict["p_tag_text"] = [p_tag.get_text() for p_tag in p_tag_dict["p_tag"]]
-
+    for chapter in translation_dataaet:
         for content in range(len(chapter["content"])):
             jp_seg = chapter["content"][content]["jp"].strip("\n").split("\n")
             translation_seg = chapter["content"][content]["translation"].strip("\n").split("\n")
 
             for jp, translation in zip(jp_seg, translation_seg):
-                for p_tag_index, p_tag_text in enumerate(p_tag_dict["p_tag_text"]):
-                    if p_tag_text == jp:
+                for p_tag_index in range(len(p_tag_dict["p_tag_text"])):
+                    if p_tag_dict["p_tag_text"][p_tag_index] == jp:
+                        p_tag_dict["p_tag_text"][p_tag_index] = translation
                         a_tag = p_tag_dict["p_tag"][p_tag_index].a
 
                         if a_tag:
@@ -143,8 +109,8 @@ def replace_translation(ebook: epub.EpubBook, translation_dataaet: list[dict[str
                 else:
                     assert True, "對齊錯誤"
         
-        for index, chapter_content in enumerate(chapter_ebook_content):
-            chapter_content.set_content(str(p_tag_dict["soup"][index]))
+    for index, chapter_content in enumerate(ebook_content):
+        chapter_content.set_content(str(p_tag_dict["soup"][index]))
 
     return ebook
 
