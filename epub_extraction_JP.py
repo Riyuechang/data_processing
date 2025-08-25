@@ -55,16 +55,16 @@ def only_numbers(text: str):
         return float(number)
 
 def extract_content(ebook: epub.EpubBook) -> list[dict[str,str]]:
-    ebook_content = [content for content in list(ebook.get_items_of_type(ebooklib.ITEM_DOCUMENT)) if only_numbers(content.file_name)]
+    ebook_content = [content for content in enumerate(list(ebook.get_items_of_type(ebooklib.ITEM_DOCUMENT)))]
 
     catalog_page_index = 0
     catalog_page_path = ebook.toc[catalog_page_index].href.split("#")[0]
 
-    if not only_numbers(catalog_page_path):
+    if "toc" not in catalog_page_path:
         catalog_page_index = 1
         catalog_page_path = ebook.toc[catalog_page_index].href.split("#")[0]
 
-    catalog_page_content = [content for content in ebook_content if content.file_name == catalog_page_path][0]
+    catalog_page_content = [content for _, content in ebook_content if content.file_name == catalog_page_path][0]
     soup = BeautifulSoup(catalog_page_content.get_content().decode("utf-8"), 'html.parser')
     a_tag = soup.body.div.find_all("a")
     catalog_href = [page_element["href"] for page_element in a_tag]
@@ -73,14 +73,16 @@ def extract_content(ebook: epub.EpubBook) -> list[dict[str,str]]:
     for href, toc in zip(catalog_href, ebook.toc[catalog_page_index + 1:]):
         href_split = href.split("#")
 
-        if not only_numbers(href_split[0]):
-            continue
-
         title_data_list.append(
             {
                 "title": toc.title, 
                 "title_id": None if len(href_split) < 2 else href_split[1], 
-                "file_path": href_split[0]
+                "file_path": href_split[0],
+                "file_index": [
+                    content_index 
+                    for content_index, content in ebook_content 
+                    if href_split[0] in content.file_name
+                ][0]
             }
         )
 
@@ -90,7 +92,7 @@ def extract_content(ebook: epub.EpubBook) -> list[dict[str,str]]:
         toc_iterable = iter(ebook.toc)
         toc = next(toc_iterable)
 
-        for content in ebook_content:
+        for _, content in ebook_content:
             if toc.href == content.file_name or abs(only_numbers(toc.href)) < abs(only_numbers(content.file_name)):
                 contents.append({
                     "title": toc.title,
@@ -111,10 +113,10 @@ def extract_content(ebook: epub.EpubBook) -> list[dict[str,str]]:
         return contents
 
     chapters: list[dict[str, str]] = []
-    for content in ebook_content:
+    for content_index, content in ebook_content:
         soup = BeautifulSoup(content.get_content().decode("utf-8"), 'html.parser')
 
-        chapter_content: dict[str, str] = {"file_path": content.file_name, "title_id": "", "content": ""}
+        chapter_content: dict[str, str] = {"file_path": content.file_name, "file_index": content_index, "title_id": "", "content": ""}
         for page_element in soup.body.div.contents if soup.body.div else soup.body.contents:
             title_id = find_title_id(page_element)
             
@@ -122,6 +124,7 @@ def extract_content(ebook: epub.EpubBook) -> list[dict[str,str]]:
                 chapters.append(chapter_content)
                 chapter_content = {
                     "file_path": content.file_name, 
+                    "file_index": content_index, 
                     "title_id": title_id if [True for id in title_data_list if id["title_id"] == title_id] else "", 
                     "content": ""
                 }
@@ -158,7 +161,7 @@ def extract_content(ebook: epub.EpubBook) -> list[dict[str,str]]:
             if not chapter_data:
                 break
 
-            if abs(only_numbers(chapter_data["file_path"])) < abs(only_numbers(title_data["file_path"])):
+            if chapter_data["file_index"] < title_data["file_index"]:
                 chapter_data = next(chapters_iterable, None)
                 continue
 
