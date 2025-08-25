@@ -83,8 +83,13 @@ def replace_translation(ebook: epub.EpubBook, translation_dataaet: list[dict[str
         p_tag_dict["soup"].append(BeautifulSoup(chapter_content.get_body_content().decode("utf-8"), 'html.parser'))
         p_tag_dict["p_tag"].extend(p_tag_dict["soup"][-1].find_all("p"))
         p_tag_dict["p_tag"].extend(p_tag_dict["soup"][-1].find_all("h1"))
+        p_tag_dict["p_tag"].extend(p_tag_dict["soup"][-1].find_all("h2"))
+        p_tag_dict["p_tag"].extend(p_tag_dict["soup"][-1].find_all("h3"))
+        p_tag_dict["p_tag"].extend(p_tag_dict["soup"][-1].find_all("h4"))
+        p_tag_dict["p_tag"].extend(p_tag_dict["soup"][-1].find_all("h5"))
+        p_tag_dict["p_tag"].extend(p_tag_dict["soup"][-1].find_all("h6"))
     
-    p_tag_dict["p_tag_text"] = [p_tag.get_text() for p_tag in p_tag_dict["p_tag"]]
+    p_tag_dict["p_tag_text"] = [p_tag.get_text().replace("　", " ") for p_tag in p_tag_dict["p_tag"]]
 
     for chapter in translation_dataaet:
         for content in range(len(chapter["content"])):
@@ -93,17 +98,19 @@ def replace_translation(ebook: epub.EpubBook, translation_dataaet: list[dict[str
 
             for jp, translation in zip(jp_seg, translation_seg):
                 for p_tag_index in range(len(p_tag_dict["p_tag_text"])):
-                    if p_tag_dict["p_tag_text"][p_tag_index] == jp:
-                        p_tag_dict["p_tag_text"][p_tag_index] = translation
+                    jp = jp.replace("　", " ")
+
+                    if jp in p_tag_dict["p_tag_text"][p_tag_index]:
+                        p_tag_dict["p_tag_text"][p_tag_index] = p_tag_dict["p_tag_text"][p_tag_index].replace(jp, translation)
                         a_tag = p_tag_dict["p_tag"][p_tag_index].a
 
                         if a_tag:
-                            a_tag.string = translation
+                            a_tag.string = p_tag_dict["p_tag_text"][p_tag_index]
                             new_a_tag = BeautifulSoup(str(a_tag), 'html.parser').a
                             p_tag_dict["p_tag"][p_tag_index].clear()
                             p_tag_dict["p_tag"][p_tag_index].append(new_a_tag)
                         else:
-                            p_tag_dict["p_tag"][p_tag_index].string = translation
+                            p_tag_dict["p_tag"][p_tag_index].string = p_tag_dict["p_tag_text"][p_tag_index]
 
                         break
                 else:
