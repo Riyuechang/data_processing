@@ -60,7 +60,7 @@ def extract_content(ebook: epub.EpubBook) -> list[dict[str,str]]:
     catalog_page_index = 0
     catalog_page_path = ebook.toc[catalog_page_index].href.split("#")[0]
 
-    if "toc" not in catalog_page_path:
+    if type(only_numbers(catalog_page_path)) is not float and "toc" not in catalog_page_path:
         catalog_page_index = 1
         catalog_page_path = ebook.toc[catalog_page_index].href.split("#")[0]
 
@@ -86,19 +86,32 @@ def extract_content(ebook: epub.EpubBook) -> list[dict[str,str]]:
             }
         )
 
-    if not any(title_data["title_id"] for title_data in title_data_list):
-        contents: list[dict[str, str]] = []
+    assert title_data_list and any(title_data["title_id"] for title_data in title_data_list), "title_id為空"
+    """if not any(title_data["title_id"] for title_data in title_data_list):
 
-        toc_iterable = iter(ebook.toc)
-        toc = next(toc_iterable)
+        contents: list[dict[str, str]] = [
+            {
+                "title": ebook.toc[catalog_page_index].title,
+                "content": "\n".join(
+                    [
+                        toc.title 
+                        for toc in ebook.toc[catalog_page_index + 1:] 
+                        if toc.title in [title_data["title"] for title_data in title_data_list]
+                    ]
+                )
+            }
+        ]
 
-        for _, content in ebook_content:
-            if toc.href == content.file_name or abs(only_numbers(toc.href)) < abs(only_numbers(content.file_name)):
+        content_iterable = iter(ebook_content)
+        content_index, content = next(content_iterable)
+
+        for title_data in title_data_list:
+            if title_data["file_path"] in content.file_name or content_index < title_data["file_path"]:
                 contents.append({
                     "title": toc.title,
                     "content": ""
                 })
-                toc = next(toc_iterable, None)
+                content_index, content = next(content_iterable, None)
 
             soup = BeautifulSoup(content.get_content().decode("utf-8"), 'html.parser')
             contents[-1]["content"] += f"\n{soup.body.get_text()}\n"
@@ -110,7 +123,7 @@ def extract_content(ebook: epub.EpubBook) -> list[dict[str,str]]:
                 string=content["content"].strip()
             )
 
-        return contents
+        return contents"""
 
     chapters: list[dict[str, str]] = []
     for content_index, content in ebook_content:
@@ -197,8 +210,8 @@ if __name__ == "__main__":
     """
 
     #EBOOK_NAME = "Heru_modo_Yarikomizuki_no_gema_v01-06_epub"
-    #EBOOK_NAME = "Heru_modo_Yarikomizuki_no_gema_v07-08_epub"
-    EBOOK_NAME = "test"
+    EBOOK_NAME = "Heru_modo_Yarikomizuki_no_gema_v07-08_epub"
+    #EBOOK_NAME = "test"
     #EBOOK_NAME = "Otonari_no_Tenshisama_ni_Itsu_v01-08_epub"
     #EBOOK_NAME = "Otonari_no_Tenshisama_ni_Itsu_v05.5_08.5_epub"
     #EBOOK_NAME = "Otonari_no_Tenshisama_ni_Itsu_v09-10_epub"
