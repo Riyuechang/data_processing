@@ -17,6 +17,9 @@ def find_title_id(page_element: element.PageElement) -> str | None:
 
     title_id = page_element.get("id")
 
+    if not title_id and page_element.a:
+        title_id = page_element.a.get("id")
+
     if title_id:
         return title_id
 
@@ -66,8 +69,8 @@ def extract_content(ebook: epub.EpubBook) -> list[dict[str,str]]:
 
     catalog_page_content = [content for _, content in ebook_content if content.file_name == catalog_page_path][0]
     soup = BeautifulSoup(catalog_page_content.get_content().decode("utf-8"), 'html.parser')
-    a_tag = soup.body.div.find_all("a")
-    catalog_href = [page_element["href"] for page_element in a_tag]
+    a_tag = soup.body.find_all("a")
+    catalog_href = [page_element["href"] for page_element in a_tag if page_element.get("href")]
 
     title_data_list: list[dict[str, str | None]] = []
     for href, toc in zip(catalog_href, ebook.toc[catalog_page_index + 1:]):
@@ -129,8 +132,17 @@ def extract_content(ebook: epub.EpubBook) -> list[dict[str,str]]:
     for content_index, content in ebook_content:
         soup = BeautifulSoup(content.get_content().decode("utf-8"), 'html.parser')
 
+        if soup.body.div:
+            main_div = [
+                (len(find_main_div.find_all("p")), index, find_main_div) 
+                for index, find_main_div in enumerate(soup.body.find_all("div"))
+            ]
+            _, _, content_main = max(main_div)
+        else:
+            content_main = soup.body
+
         chapter_content: dict[str, str] = {"file_path": content.file_name, "file_index": content_index, "title_id": "", "content": ""}
-        for page_element in soup.body.div.contents if soup.body.div else soup.body.contents:
+        for page_element in content_main.contents:
             title_id = find_title_id(page_element)
             
             if title_id:
@@ -209,8 +221,9 @@ if __name__ == "__main__":
         json.dump(data, file, indent=4, ensure_ascii=False)
     """
 
+    EBOOK_NAME = "[依空まつり]_サイレント・ウィッチ_沈黙の魔女の隠しごと_第09巻_epub"
     #EBOOK_NAME = "Heru_modo_Yarikomizuki_no_gema_v01-06_epub"
-    EBOOK_NAME = "Heru_modo_Yarikomizuki_no_gema_v07-08_epub"
+    #EBOOK_NAME = "Heru_modo_Yarikomizuki_no_gema_v07-08_epub"
     #EBOOK_NAME = "test"
     #EBOOK_NAME = "Otonari_no_Tenshisama_ni_Itsu_v01-08_epub"
     #EBOOK_NAME = "Otonari_no_Tenshisama_ni_Itsu_v05.5_08.5_epub"
