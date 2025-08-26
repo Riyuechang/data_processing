@@ -100,19 +100,21 @@ def replace_translation(ebook: epub.EpubBook, translation_dataaet: list[dict[str
                 for p_tag_index in range(len(p_tag_dict["p_tag_text"])):
                     jp = jp.replace("　", " ")
 
-                    if jp in p_tag_dict["p_tag_text"][p_tag_index]:
-                        p_tag_dict["p_tag_text"][p_tag_index] = p_tag_dict["p_tag_text"][p_tag_index].replace(jp, translation)
-                        a_tag = p_tag_dict["p_tag"][p_tag_index].a
+                    if jp not in p_tag_dict["p_tag_text"][p_tag_index]:
+                        continue
+                    
+                    p_tag_dict["p_tag_text"][p_tag_index] = p_tag_dict["p_tag_text"][p_tag_index].replace(jp, translation)
+                    a_tag = p_tag_dict["p_tag"][p_tag_index].a
 
-                        if a_tag:
-                            a_tag.string = p_tag_dict["p_tag_text"][p_tag_index]
-                            new_a_tag = BeautifulSoup(str(a_tag), 'html.parser').a
-                            p_tag_dict["p_tag"][p_tag_index].clear()
-                            p_tag_dict["p_tag"][p_tag_index].append(new_a_tag)
-                        else:
-                            p_tag_dict["p_tag"][p_tag_index].string = p_tag_dict["p_tag_text"][p_tag_index]
+                    if a_tag:
+                        a_tag.string = p_tag_dict["p_tag_text"][p_tag_index]
+                        new_a_tag = BeautifulSoup(str(a_tag), 'html.parser').a
+                        p_tag_dict["p_tag"][p_tag_index].clear()
+                        p_tag_dict["p_tag"][p_tag_index].append(new_a_tag)
+                    else:
+                        p_tag_dict["p_tag"][p_tag_index].string = p_tag_dict["p_tag_text"][p_tag_index]
 
-                        break
+                    break
                 else:
                     assert True, "對齊錯誤"
         
