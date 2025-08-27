@@ -23,35 +23,6 @@ TRANSLATION_PATH = f"/home/ifw/Python_project/data_processing/translation/{EBOOK
 SAVE_DIR_PATH = f"/home/ifw/epub/{EBOOK_NAME}_translation"
 
 
-def find_title_id(page_element: element.PageElement) -> str | None:
-    if (type(page_element) is element.NavigableString
-         or type(page_element) is element.Comment
-         or type(page_element) is element.RubyTextString
-        ):
-        return None
-
-    title_id = page_element.get("id")
-
-    if title_id:
-        return title_id
-
-    page_element_contents = page_element.contents.copy()
-    page_element_contents.reverse()
-    for content in page_element_contents:
-        title_id = find_title_id(content)
-        
-        if title_id:
-            return title_id
-    
-    return None
-
-def only_newline(content: str):
-    for word in content:
-        if word != "\n":
-            return False
-    
-    return True
-
 def only_numbers(text: str):
     numbers = ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9", ".", "-"]
 
