@@ -9,16 +9,16 @@ from transformers.cache_utils import DynamicCache
 
 SLIDING_WINDOW_SIZE = 4096
 MAX_SENTENCE_LEN = 256
-MAX_CHUNK_SIZE = 768
+MAX_CHUNK_SIZE = 896
 
 #MODEL_NAME = "gemma-2-2b"
 MODEL_NAME = "llm-jp-3.1-1.8b"
 MODEL_PATH = f"/media/ifw/GameFile/linux_cache/LLMModel/{MODEL_NAME}"
 
-#NOVEL_NAME = "test"
+NOVEL_NAME = "test"
 #NOVEL_NAME = "Heru_modo_Yarikomizuki_no_gema_v01-06_epub"
 #NOVEL_NAME = "Heru_modo_Yarikomizuki_no_gema_v07-08_epub"
-NOVEL_NAME = "[依空まつり]_サイレント・ウィッチ_沈黙の魔女の隠しごと_第09巻_epub"
+#NOVEL_NAME = "[依空まつり]_サイレント・ウィッチ_沈黙の魔女の隠しごと_第09巻_epub"
 NOVEL_PATH = f"./epub_chapter_content/{NOVEL_NAME}"
 
 SAVE_DIR_PATH = f"./output/{NOVEL_NAME}"
@@ -172,6 +172,42 @@ def text_chunking(
     
     return text_chunking(new_chunks, new_chunks_perplexitys)
 
+def small_chunk_merging(chunks: list[str]) -> list[str]:
+    if len(chunks) == 1:
+        return chunks
+
+    chunks_sorted = sorted([(len(chunk), index) for index, chunk in enumerate(chunks)])
+
+    for _, chunk_index in chunks_sorted:
+        if chunk_index == 0:
+            if len(chunks[chunk_index]) + len(chunks[chunk_index + 1]) > MAX_CHUNK_SIZE:
+                continue
+
+            chunks[chunk_index:chunk_index + 2] = [chunks[chunk_index] + chunks[chunk_index + 1]]
+            return small_chunk_merging(chunks)
+        
+        if chunk_index + 1 == len(chunks):
+            if len(chunks[chunk_index]) + len(chunks[chunk_index - 1]) > MAX_CHUNK_SIZE:
+                continue
+
+            chunks[chunk_index - 1:chunk_index + 1] = [chunks[chunk_index - 1] + chunks[chunk_index]]
+            return small_chunk_merging(chunks)
+        
+        _, index_offset = min([
+            (len(chunks[chunk_index - 1]), -1),
+            (len(chunks[chunk_index + 1]), 1),
+        ])
+
+        if len(chunks[chunk_index]) + len(chunks[chunk_index + index_offset]) > MAX_CHUNK_SIZE:
+            continue
+        
+        chunks[chunk_index + min(0, index_offset):chunk_index + 1 + max(0, index_offset)] = [
+            chunks[chunk_index + min(0, index_offset)] + chunks[chunk_index + max(0, index_offset)]
+        ]
+        return small_chunk_merging(chunks)
+
+    return chunks
+
 
 if __name__ == "__main__":
     tokenizer = AutoTokenizer.from_pretrained(MODEL_PATH)
@@ -203,7 +239,7 @@ if __name__ == "__main__":
                 sentences = sentence_segmentation(data["content"])
                 perplexitys = perplexity_distribution(sentences, use_cache=True, return_loss=True)
                 perplexitys[0] = 0
-                data["content"] = text_chunking([sentences], [perplexitys])
+                data["content"] = small_chunk_merging(text_chunking([sentences], [perplexitys]))
 
         with open(f"{SAVE_DIR_PATH}/{novel_file}", 'w', encoding='utf-8') as file:
             json.dump(dataset, file, indent=4, ensure_ascii=False)
