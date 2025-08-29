@@ -9,7 +9,6 @@ from transformers.cache_utils import DynamicCache
 
 SLIDING_WINDOW_SIZE = 4096
 MAX_SENTENCE_LEN = 256
-MAX_CHUNK_SIZE = 896
 
 #MODEL_NAME = "gemma-2-2b"
 MODEL_NAME = "llm-jp-3.1-1.8b"
@@ -21,7 +20,7 @@ NOVEL_NAME = "test"
 #NOVEL_NAME = "[依空まつり]_サイレント・ウィッチ_沈黙の魔女の隠しごと_第09巻_epub"
 NOVEL_PATH = f"./epub_chapter_content/{NOVEL_NAME}"
 
-SAVE_DIR_PATH = f"./output/{NOVEL_NAME}"
+SAVE_DIR_PATH = f"./novel_perplexity/{NOVEL_NAME}"
 
 
 def total_proportion(numbers: list[int | float]):
@@ -87,8 +86,7 @@ def calculate_perplexity(
     text: str, 
     past_key_values: DynamicCache=None,
     use_cache: bool=True,
-    return_loss: bool=False
-) -> tuple[float, DynamicCache]:
+) -> tuple[float, float, DynamicCache]:
     with torch.no_grad():
         inputs = tokenizer(
             text, 
@@ -118,95 +116,29 @@ def calculate_perplexity(
             use_cache=use_cache
         )
     return (
-        float(outputs.loss) if return_loss else torch.exp(outputs.loss).item(),
+        torch.exp(outputs.loss).item(),
+        float(outputs.loss),
         outputs.past_key_values if use_cache else None
     )
 
 def perplexity_distribution(
     sentences: list[str], 
     use_cache: bool=True,
-    return_loss: bool=False
 ):
-    distributions: list[float] = []
+    distributions_perplexity: list[float] = []
+    distributions_loss: list[float] = []
     past_key_values = None
 
     for sentence in sentences:
-        perplexity, past_key_values = calculate_perplexity(
+        perplexity, loss, past_key_values = calculate_perplexity(
             sentence,
             past_key_values=past_key_values if use_cache else None,
-            use_cache=use_cache,
-            return_loss=return_loss
+            use_cache=use_cache
         )
-        distributions.append(perplexity)
+        distributions_perplexity.append(perplexity)
+        distributions_loss.append(loss)
 
-    return distributions
-
-def text_chunking(
-    chunks: list[list[str]], 
-    chunks_perplexitys: list[list[float]]
-) -> list[str]:
-    not_exceeding_limits = True
-    for chunk in  chunks:
-        if sum([len(sentence) for sentence in chunk]) > MAX_CHUNK_SIZE:
-            not_exceeding_limits = False
-    
-    if not_exceeding_limits:
-        return ["".join(chunk) for chunk in chunks]
-    
-    new_chunks: list[list[str]] = []
-    new_chunks_perplexitys: list[list[float]] = []
-    for chunk, perplexitys in zip(chunks, chunks_perplexitys):
-        if sum([len(sentence) for sentence in chunk]) <= MAX_CHUNK_SIZE:
-            new_chunks.append(chunk)
-            new_chunks_perplexitys.append(perplexitys)
-            continue
-
-        _, perplexity_index = max([(perplexity, index) for index, perplexity in enumerate(perplexitys)])
-
-        new_chunks.extend([chunk[:perplexity_index], chunk[perplexity_index:]])
-        new_perplexitys_1 = perplexitys[:perplexity_index]
-        new_perplexitys_2 = perplexitys[perplexity_index:]
-        new_perplexitys_1[0] = 0
-        new_perplexitys_2[0] = 0
-        new_chunks_perplexitys.extend([new_perplexitys_1, new_perplexitys_2])
-    
-    return text_chunking(new_chunks, new_chunks_perplexitys)
-
-def small_chunk_merging(chunks: list[str]) -> list[str]:
-    if len(chunks) == 1:
-        return chunks
-
-    chunks_sorted = sorted([(len(chunk), index) for index, chunk in enumerate(chunks)])
-
-    for _, chunk_index in chunks_sorted:
-        if chunk_index == 0:
-            if len(chunks[chunk_index]) + len(chunks[chunk_index + 1]) > MAX_CHUNK_SIZE:
-                continue
-
-            chunks[chunk_index:chunk_index + 2] = [chunks[chunk_index] + chunks[chunk_index + 1]]
-            return small_chunk_merging(chunks)
-        
-        if chunk_index + 1 == len(chunks):
-            if len(chunks[chunk_index]) + len(chunks[chunk_index - 1]) > MAX_CHUNK_SIZE:
-                continue
-
-            chunks[chunk_index - 1:chunk_index + 1] = [chunks[chunk_index - 1] + chunks[chunk_index]]
-            return small_chunk_merging(chunks)
-        
-        _, index_offset = min([
-            (len(chunks[chunk_index - 1]), -1),
-            (len(chunks[chunk_index + 1]), 1),
-        ])
-
-        if len(chunks[chunk_index]) + len(chunks[chunk_index + index_offset]) > MAX_CHUNK_SIZE:
-            continue
-        
-        chunks[chunk_index + min(0, index_offset):chunk_index + 1 + max(0, index_offset)] = [
-            chunks[chunk_index + min(0, index_offset)] + chunks[chunk_index + max(0, index_offset)]
-        ]
-        return small_chunk_merging(chunks)
-
-    return chunks
+    return distributions_perplexity, distributions_loss
 
 
 if __name__ == "__main__":
@@ -235,11 +167,15 @@ if __name__ == "__main__":
         with open(f"{NOVEL_PATH}/{novel_file}", "r", encoding="utf-8") as file:
             dataset: list[dict[str, str]] = json.load(file)
 
-            for data in dataset:
-                sentences = sentence_segmentation(data["content"])
-                perplexitys = perplexity_distribution(sentences, use_cache=True, return_loss=True)
-                perplexitys[0] = 0
-                data["content"] = small_chunk_merging(text_chunking([sentences], [perplexitys]))
+        for data in dataset:
+            sentences = sentence_segmentation(data["content"])
+            perplexitys, loss = perplexity_distribution(sentences, use_cache=True)
+            perplexitys[0] = 0
+            loss[0] = 0
+            data["content"] = sentences
+            data["loss"] = loss
+            data["perplexity"] = perplexitys
+            #data["content"] = small_chunk_merging(text_chunking([sentences], [perplexitys]))
 
         with open(f"{SAVE_DIR_PATH}/{novel_file}", 'w', encoding='utf-8') as file:
             json.dump(dataset, file, indent=4, ensure_ascii=False)
