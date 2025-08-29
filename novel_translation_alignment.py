@@ -4,8 +4,8 @@ import json
 from tqdm import tqdm
 
 
-#NOVEL_NAME = "test"
-NOVEL_NAME = "[依空まつり]_サイレント・ウィッチ_沈黙の魔女の隠しごと_第09巻_epub"
+NOVEL_NAME = "test"
+#NOVEL_NAME = "[依空まつり]_サイレント・ウィッチ_沈黙の魔女の隠しごと_第09巻_epub"
 #NOVEL_NAME = "Heru_modo_Yarikomizuki_no_gema_v01-06_epub"
 #NOVEL_NAME = "Heru_modo_Yarikomizuki_no_gema_v07-08_epub"
 NOVEL_PATH = f"./translation/{NOVEL_NAME}"

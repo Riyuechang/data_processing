@@ -221,10 +221,10 @@ if __name__ == "__main__":
         json.dump(data, file, indent=4, ensure_ascii=False)
     """
 
-    EBOOK_NAME = "[依空まつり]_サイレント・ウィッチ_沈黙の魔女の隠しごと_第09巻_epub"
+    #EBOOK_NAME = "[依空まつり]_サイレント・ウィッチ_沈黙の魔女の隠しごと_第09巻_epub"
     #EBOOK_NAME = "Heru_modo_Yarikomizuki_no_gema_v01-06_epub"
     #EBOOK_NAME = "Heru_modo_Yarikomizuki_no_gema_v07-08_epub"
-    #EBOOK_NAME = "test"
+    EBOOK_NAME = "test"
     #EBOOK_NAME = "Otonari_no_Tenshisama_ni_Itsu_v01-08_epub"
     #EBOOK_NAME = "Otonari_no_Tenshisama_ni_Itsu_v05.5_08.5_epub"
     #EBOOK_NAME = "Otonari_no_Tenshisama_ni_Itsu_v09-10_epub"
