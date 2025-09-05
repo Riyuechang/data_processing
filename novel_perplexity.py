@@ -1,5 +1,7 @@
 import os
+import sys
 import json
+from math import isnan
 
 import torch
 from tqdm import tqdm
@@ -92,7 +94,7 @@ def calculate_perplexity(
             text, 
             return_tensors="pt", 
             padding=True, 
-            add_special_tokens=True if past_key_values else False
+            add_special_tokens=(not past_key_values)
         ).to("cuda")
 
         if past_key_values and past_key_values.get_seq_length() + len(inputs["input_ids"]) > SLIDING_WINDOW_SIZE:
@@ -116,8 +118,8 @@ def calculate_perplexity(
             use_cache=use_cache
         )
     return (
-        torch.exp(outputs.loss).item(),
-        float(outputs.loss),
+        torch.exp(outputs.loss).item() if not isnan(float(outputs.loss)) else sys.float_info.max,
+        float(outputs.loss) if not isnan(float(outputs.loss)) else sys.float_info.max,
         outputs.past_key_values if use_cache else None
     )
 
@@ -132,7 +134,7 @@ def perplexity_distribution(
     for sentence in sentences:
         perplexity, loss, past_key_values = calculate_perplexity(
             sentence,
-            past_key_values=past_key_values if use_cache else None,
+            past_key_values=past_key_values,
             use_cache=use_cache
         )
         distributions_perplexity.append(perplexity)
