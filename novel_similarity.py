@@ -10,7 +10,8 @@ BATCH_SIZE = 24
 SLIDING_WINDOW_SIZE = 2048
 MAX_SENTENCE_LEN = 256
 
-MODEL_NAME = "jina-embeddings-v3"
+MODEL_NAME = "Qwen3-Embedding-0.6B"
+#MODEL_NAME = "jina-embeddings-v3"
 MODEL_PATH = f"/media/ifw/GameFile/linux_cache/embedding_model/{MODEL_NAME}"
 
 NOVEL_NAME = "test"
@@ -103,7 +104,7 @@ def similarity_distribution(sentences: list[str]):
             texts, 
             batch_size=BATCH_SIZE, 
             convert_to_tensor=True, 
-            show_progress_bar=True
+            #show_progress_bar=True
         )
         for texts in [contexts, sentences[1:]]
     ]
@@ -117,7 +118,7 @@ def similarity_distribution(sentences: list[str]):
 
 if __name__ == "__main__":
     tokenizer = AutoTokenizer.from_pretrained(MODEL_PATH)
-    model = SentenceTransformer(MODEL_PATH, trust_remote_code=True).half()
+    model = SentenceTransformer(MODEL_PATH, trust_remote_code=True).bfloat16()
 
     if not os.path.isdir(SAVE_DIR_PATH):
         os.mkdir(SAVE_DIR_PATH)
