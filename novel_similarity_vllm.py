@@ -10,15 +10,15 @@ from vllm import LLM
 
 
 BATCH_SIZE = 256
-SLIDING_WINDOW_SIZE = 2046
+SLIDING_WINDOW_SIZE = 8190
 MAX_SENTENCE_LEN = 256
 
 MAX_TOKENS = SLIDING_WINDOW_SIZE + 2 #8192
 MAX_BATCHED_TOKENS = 131072 #32768 8192 16384 65536
-VRAM_UTILIZATION = 0.94
+VRAM_UTILIZATION = 0.95
 
-MODEL_NAME = "embeddinggemma-300m"
-#MODEL_NAME = "Qwen3-Embedding-0.6B"
+#MODEL_NAME = "embeddinggemma-300m"
+MODEL_NAME = "Qwen3-Embedding-0.6B"
 #MODEL_NAME = "jina-embeddings-v3"
 MODEL_PATH = f"/media/ifw/GameFile/linux_cache/embedding_model/{MODEL_NAME}"
 

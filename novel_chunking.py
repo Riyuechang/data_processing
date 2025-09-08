@@ -17,6 +17,7 @@ NOVEL_PATH = f"./novel_similarity/{NOVEL_NAME}"
 
 SAVE_DIR_PATH = f"./novel_chunking/{NOVEL_NAME}"
 
+#MODEL_NAME = "Qwen3-Embedding-0.6B"
 MODEL_NAME = "jina-embeddings-v3"
 MODEL_PATH = f"/media/ifw/GameFile/linux_cache/embedding_model/{MODEL_NAME}"
 
