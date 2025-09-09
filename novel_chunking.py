@@ -1,12 +1,14 @@
 import os
 import json
 from typing import Literal
+from statistics import mean
 
 from tqdm import tqdm
 from sentence_transformers import SentenceTransformer
 
 
 MAX_CHUNK_SIZE = 1280
+BACKWARD_WINDOW_SIZE = 3
 
 NOVEL_NAME = "test"
 #NOVEL_NAME = "Heru_modo_Yarikomizuki_no_gema_v01-06_epub"
@@ -42,10 +44,12 @@ def text_chunking(
             new_chunks_values.append(values)
             continue
 
+        new_values = [mean(values[i:min(i + BACKWARD_WINDOW_SIZE, len(values))]) for i in range(len(values))]
+
         if mode == "max":
-            _, value_index = max([(value, index) for index, value in enumerate(values)])
+            _, value_index = max([(value, index) for index, value in enumerate(new_values)])
         else:
-            _, value_index = min([(value, index) for index, value in enumerate(values)])
+            _, value_index = min([(value, index) for index, value in enumerate(new_values)])
 
         new_chunks.extend([chunk[:value_index], chunk[value_index:]])
         new_values_1 = values[:value_index]
