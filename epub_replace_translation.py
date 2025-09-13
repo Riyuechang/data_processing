@@ -8,8 +8,8 @@ from bs4 import BeautifulSoup, element
 from tqdm import tqdm
 
 
-EBOOK_NAME = "[依空まつり]_サイレント・ウィッチ_沈黙の魔女の隠しごと_第09巻_epub"
-#EBOOK_NAME = "Heru_modo_Yarikomizuki_no_gema_v01-06_epub"
+#EBOOK_NAME = "[依空まつり]_サイレント・ウィッチ_沈黙の魔女の隠しごと_第09巻_epub"
+EBOOK_NAME = "Heru_modo_Yarikomizuki_no_gema_v01-06_epub"
 #EBOOK_NAME = "Heru_modo_Yarikomizuki_no_gema_v07-08_epub"
 #EBOOK_NAME = "test"
 #EBOOK_NAME = "Otonari_no_Tenshisama_ni_Itsu_v01-08_epub"

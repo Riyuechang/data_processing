@@ -14,9 +14,9 @@ MIN_P = 0.1
 TOP_P = 0.3
 FREQUENCY_PENALTY = 0.2
 
-MAX_REQUESTS = 32 #20 24 8 64 128 256 
+MAX_REQUESTS = 24 #32 20 8 64 128 256 
 MAX_BATCHED_TOKENS = 32768 #8192 16384 65536
-VRAM_UTILIZATION = 0.99
+VRAM_UTILIZATION = 0.95
 
 MODEL_NAME = "Sakura-7B-Qwen2.5-v1.0-GGUF/sakura-7b-qwen2.5-v1.0-iq4xs.gguf"
 #MODEL_NAME = "Sakura-GalTransl-7B-v3.7/Sakura-Galtransl-7B-v3.7-IQ4_XS.gguf"
@@ -25,8 +25,8 @@ MODEL_PATH = f"/media/ifw/GameFile/linux_cache/LLMModel/{MODEL_NAME}"
 TOKENIZER_NAME = "Sakura-1.5B-Qwen2.5-v1.0-HF"
 TOKENIZER_PATH = f"/media/ifw/GameFile/linux_cache/LLMModel/{TOKENIZER_NAME}"
 
-NOVEL_NAME = "test"
-#NOVEL_NAME = "Heru_modo_Yarikomizuki_no_gema_v01-06_epub"
+#NOVEL_NAME = "test"
+NOVEL_NAME = "Heru_modo_Yarikomizuki_no_gema_v01-06_epub"
 #NOVEL_NAME = "Heru_modo_Yarikomizuki_no_gema_v07-08_epub"
 #NOVEL_NAME = "[依空まつり]_サイレント・ウィッチ_沈黙の魔女の隠しごと_第09巻_epub"
 NOVEL_PATH = f"./novel_chunking/{NOVEL_NAME}"
