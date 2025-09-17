@@ -27,14 +27,16 @@ TOKENIZER_NAME = "Sakura-1.5B-Qwen2.5-v1.0-HF"
 TOKENIZER_PATH = f"/media/ifw/GameFile/linux_cache/LLMModel/{TOKENIZER_NAME}"
 
 #NOVEL_NAME = "test"
+NOVEL_NAME = "Otonari_no_Tenshisama_ni_Itsu_v01-10_epub"
 #NOVEL_NAME = "[依空まつり]_サイレント・ウィッチ_沈黙の魔女の隠しごと_第09巻_epub"
-NOVEL_NAME = "Heru_modo_Yarikomizuki_no_gema_v01-06_epub"
+#NOVEL_NAME = "Heru_modo_Yarikomizuki_no_gema_v01-06_epub"
 #NOVEL_NAME = "Heru_modo_Yarikomizuki_no_gema_v07-08_epub"
 NOVEL_PATH = f"./translation/{NOVEL_NAME}"
 
 USE_GLOSSARY = True
-GLOSSARY_PATH = "./translation/sakura_gpt_dict.json"
+#GLOSSARY_PATH = "./translation/sakura_gpt_dict.json"
 #GLOSSARY_PATH = "./translation/sakura_gpt_dict_沈黙の魔女の隠しごと.json"
+GLOSSARY_PATH = "./translation/sakura_gpt_dict_お隣の天使様にいつの間にか駄目人間にされていた件.json"
 
 SAVE_DIR_PATH = f"./translation/{NOVEL_NAME}"
 
@@ -44,14 +46,14 @@ def vllm_add_request(input_text: str, request_id: str):
         glossary_list = [
             f"{glossary['jp']}->{opencc_converter.convert(glossary['tw'])} #{opencc_converter.convert(glossary['info'])}" if glossary["info"] else f"{glossary['jp']}->{opencc_converter.convert(glossary['tw'])}"
             for glossary in glossary_dict
-            if [True for name_part in glossary['jp'].split("・") if name_part in input_text]
+            if [True for name_part in glossary['match'] if name_part in input_text]
         ]
         glossary_prompt = "\n".join(glossary_list)
 
     prompt = tokenizer.apply_chat_template(
         [
             {"role": "system", "content": "你是一个轻小说翻译模型，可以流畅通顺地以日本轻小说的风格将日文翻译成简体中文，并联系上下文正确使用人称代词，不擅自添加原文中没有的代词。"},
-            {"role": "user", "content": f"根据以下术语表（可以为空）：\n{glossary_prompt}\n将下面的日文文本翻译成中文：{input_text}" if USE_GLOSSARY else f"将下面的日文文本翻译成中文：{input_text}"}
+            {"role": "user", "content": f"根据以下术语表（可以为空）：\n{glossary_prompt}\n将下面的日文文本翻译成中文：{input_text}" if glossary_prompt else f"将下面的日文文本翻译成中文：{input_text}"}
         ], 
         add_generation_prompt=True, 
         tokenize=False
