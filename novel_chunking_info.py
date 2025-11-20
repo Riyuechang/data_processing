@@ -6,7 +6,8 @@ from tqdm import tqdm
 
 
 #NOVEL_NAME = "test"
-NOVEL_NAME = "Heru_modo_Yarikomizuki_no_gema_v01-06_epub"
+NOVEL_NAME = "Otonari_no_Tenshisama_ni_Itsu_v01-10_epub"
+#NOVEL_NAME = "Heru_modo_Yarikomizuki_no_gema_v01-06_epub"
 NOVEL_PATH = f"./novel_chunking/{NOVEL_NAME}"
 
 novel_file_list = [dir for dir in os.listdir(NOVEL_PATH) if dir.endswith(".json")]

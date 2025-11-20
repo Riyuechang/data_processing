@@ -64,9 +64,9 @@ def replace_translation(ebook: epub.EpubBook, translation_dataaet: list[dict[str
     p_tag_dict["p_tag_text"] = [p_tag.get_text().replace("　", " ") for p_tag in p_tag_dict["p_tag"]]
 
     for chapter in translation_dataaet:
-        for content in range(len(chapter["content"])):
-            jp_seg = chapter["content"][content]["jp"].strip("\n").split("\n")
-            translation_seg = chapter["content"][content]["translation"].strip("\n").split("\n")
+        for content in chapter["content"]:
+            jp_seg = content["jp"].strip("\n").split("\n")
+            translation_seg = content["translation"].strip("\n").split("\n")
 
             for jp, translation in zip(jp_seg, translation_seg):
                 for p_tag_index in range(len(p_tag_dict["p_tag_text"])):
