@@ -1,16 +1,28 @@
+from collections import defaultdict
+
 import numpy as np
+import pandas as pd
 from PIL import Image
+from tqdm import tqdm
 
 
-MANGA_OCR_DATA_PATH = "/media/ifw/GameFile/linux_cache/data_unprocessed/manga_image_ocr.parquet"
+def array_to_list(array):
+    if isinstance(array, np.ndarray):
+        return [array_to_list(i) for i in array.tolist()]
 
+    if isinstance(array, (list, tuple)):
+        return [array_to_list(i) for i in array]
+
+    return array
 
 def get_polygons_projection(
     polygon: np.ndarray, 
     normal: np.ndarray
 ) -> tuple[np.ndarray, np.ndarray]:
-    dots: np.ndarray = np.dot(polygon, normal)
-    return np.min(dots), np.max(dots)
+    #dots: np.ndarray = np.dot(polygon, normal)
+    #return np.min(dots), np.max(dots)
+    dots = [np.dot(normal, p) for p in polygon]
+    return min(dots), max(dots)
 
 def polygons_overlap(
     poly_1: np.ndarray, 
@@ -166,7 +178,7 @@ def get_merge_bbox(*polygons, image_size: int):
         min_distance = min(distance)
 
         all_xy_point_sort.append(
-            (min_distance, point_index)
+            (min_distance, point_index, new_bbox[index], new_bbox[(index + 1) % len(new_bbox)])
         )
 
     all_xy_point_sort.sort(
@@ -174,7 +186,7 @@ def get_merge_bbox(*polygons, image_size: int):
         key=lambda x: x[0]
     )
 
-    for _, point in all_xy_point_sort:
+    for _, point, _, _ in all_xy_point_sort:
         if is_point_inside(new_bbox, point, threshold=0):
             continue
 
@@ -198,3 +210,57 @@ def get_merge_bbox(*polygons, image_size: int):
     return new_bbox
 
 
+if __name__ == "__main__":
+    MANGA_OCR_DATA_PATH = "/media/ifw/GameFile/linux_cache/data_unprocessed/manga_image_ocr.parquet"
+
+    MIN_THRESHOLD = 0
+
+
+    dataset = pd.read_parquet(MANGA_OCR_DATA_PATH)
+
+    for data in tqdm(dataset.itertuples(), total=len(dataset), desc="duplicated"):
+        ocr_bboxes: np.ndarray = data.rec_polys
+
+        overlap_dict = defaultdict(list)
+        for index, ocr_bboxe in enumerate(ocr_bboxes):
+            for remaining_index in range(index + 1, len(ocr_bboxes)):
+                is_overlap, _ = polygons_overlap(
+                    poly_1=ocr_bboxe,
+                    poly_2=ocr_bboxes[remaining_index],
+                    threshold=MIN_THRESHOLD
+                )
+
+                if is_overlap:
+                    overlap_dict[index].append(remaining_index)
+
+        overlap_grouping: list[set[int]] = []
+        for key, values in overlap_dict.items():
+            for group in overlap_grouping:
+                if key in group:
+                    group.update(values)
+                    break
+                
+                values_in_group = [value for value in values if value in group]
+
+                if values_in_group:
+                    group.add(key)
+                    group.update(values)
+                    break
+            else:
+                overlap_grouping.append(set((key,)))
+                overlap_grouping[-1].update(values)
+        
+        overlaps = list(range(len(ocr_bboxes)))
+        overlap_not_in_grouping =[]
+        for overlap in overlaps:
+            in_grouping = False
+
+            for group in overlap_grouping:
+                if overlap in group:
+                    in_grouping = True
+                    break
+            
+            if not in_grouping:
+                overlap_not_in_grouping.append(overlap)
+
+        break
