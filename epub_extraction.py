@@ -11,7 +11,7 @@ from bs4 import BeautifulSoup, element
 EBOOK_NAME = "[北山結莉] 精霊幻想記 第27巻 ep"
 
 EBOOK_PATH = f"/home/ifw/epub/{EBOOK_NAME}"
-SAVE_DIR_PATH = f"./epub_chapter_content/{EBOOK_NAME}_test"
+SAVE_DIR_PATH = f"./epub_chapter_content/{EBOOK_NAME}"
 
 
 def extract_content(epub_path: str):
@@ -108,6 +108,10 @@ def extract_content(epub_path: str):
             for key, value in toc_data.items()
         ]
         contents_clean = [content for content in contents if content["content"]]
+        contents_clean.insert(0, {
+            "title": "contents",
+            "content": "\n".join([content["title"] for content in contents_clean])
+        })
 
         return contents_clean
 
@@ -133,6 +137,11 @@ def extract_content(epub_path: str):
             repl="\n",
             string=content["content"].strip()
         )
+    
+    contents.insert(0, {
+        "title": "contents",
+        "content": "\n".join([content["title"] for content in contents])
+    })
 
     return contents
 
