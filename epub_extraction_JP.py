@@ -89,32 +89,20 @@ def extract_content(ebook: epub.EpubBook) -> list[dict[str,str]]:
             }
         )
 
-    assert title_data_list and any(title_data["title_id"] for title_data in title_data_list), "title_id為空"
-    """if not any(title_data["title_id"] for title_data in title_data_list):
+    print([(toc.title, toc.href) for toc in ebook.toc])
+    #assert title_data_list and any(title_data["title_id"] for title_data in title_data_list), "title_id為空"
+    if not any(title_data["title_id"] for title_data in title_data_list):
+        toc_iterable = iter(ebook.toc)
+        toc = next(toc_iterable)
 
-        contents: list[dict[str, str]] = [
-            {
-                "title": ebook.toc[catalog_page_index].title,
-                "content": "\n".join(
-                    [
-                        toc.title 
-                        for toc in ebook.toc[catalog_page_index + 1:] 
-                        if toc.title in [title_data["title"] for title_data in title_data_list]
-                    ]
-                )
-            }
-        ]
-
-        content_iterable = iter(ebook_content)
-        content_index, content = next(content_iterable)
-
-        for title_data in title_data_list:
-            if title_data["file_path"] in content.file_name or content_index < title_data["file_path"]:
+        contents: list[dict[str, str]] = []
+        for content_index, content in ebook_content:
+            if toc.href in content.file_name:
                 contents.append({
                     "title": toc.title,
                     "content": ""
                 })
-                content_index, content = next(content_iterable, None)
+                toc = next(toc_iterable, None)
 
             soup = BeautifulSoup(content.get_content().decode("utf-8"), 'html.parser')
             contents[-1]["content"] += f"\n{soup.body.get_text()}\n"
@@ -126,7 +114,44 @@ def extract_content(ebook: epub.EpubBook) -> list[dict[str,str]]:
                 string=content["content"].strip()
             )
 
-        return contents"""
+        return contents
+
+        contents: list[dict[str, str]] = [
+            {
+                "title": ebook.toc[catalog_page_index].title,
+                "content": "\n".join(
+                    [
+                        toc.title 
+                        for toc in ebook.toc[catalog_page_index + 1:]
+                    ]
+                )
+            }
+        ]
+
+        content_iterable = iter(ebook_content)
+        content_index, content = next(content_iterable)
+
+        print(content.file_name)
+        print(ebook.toc[0].href)
+        for toc in ebook.toc:
+            if toc.href in content.file_name:
+                contents.append({
+                    "title": toc.title,
+                    "content": ""
+                })
+
+            soup = BeautifulSoup(content.get_content().decode("utf-8"), 'html.parser')
+            contents[-1]["content"] += f"\n{soup.body.get_text()}\n"
+            content_index, content = next(content_iterable, None)
+
+        for content in contents:
+            content["content"] = re.sub(
+                pattern=r"\n+",
+                repl="\n",
+                string=content["content"].strip()
+            )
+
+        return contents
 
     chapters: list[dict[str, str]] = []
     for content_index, content in ebook_content:
@@ -224,7 +249,8 @@ if __name__ == "__main__":
     #EBOOK_NAME = "[依空まつり]_サイレント・ウィッチ_沈黙の魔女の隠しごと_第09巻_epub"
     #EBOOK_NAME = "Heru_modo_Yarikomizuki_no_gema_v01-06_epub"
     #EBOOK_NAME = "Heru_modo_Yarikomizuki_no_gema_v07-08_epub"
-    EBOOK_NAME = "test"
+    #EBOOK_NAME = "test"
+    EBOOK_NAME = "[北山結莉] 精霊幻想記 第27巻 ep"
     #EBOOK_NAME = "Otonari_no_Tenshisama_ni_Itsu_v01-08_epub"
     #EBOOK_NAME = "Otonari_no_Tenshisama_ni_Itsu_v05.5_08.5_epub"
     #EBOOK_NAME = "Otonari_no_Tenshisama_ni_Itsu_v09-10_epub"
