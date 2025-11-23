@@ -3,8 +3,11 @@ import re
 import json
 from zipfile import ZipFile
 
-from tqdm import tqdm
+import warnings
+from bs4 import XMLParsedAsHTMLWarning
+warnings.filterwarnings("ignore", category=XMLParsedAsHTMLWarning)
 from bs4 import BeautifulSoup, element
+from tqdm import tqdm
 
 
 #EBOOK_NAME = "Mushoku_Isekai_Dasu_v01-26_epub"
@@ -18,12 +21,12 @@ def extract_content(epub_path: str):
     with ZipFile(epub_path, mode="r") as zip_file:
         container_xml = zip_file.read("META-INF/container.xml").decode()
 
-        container_soup = BeautifulSoup(container_xml, 'xml')
+        container_soup = BeautifulSoup(container_xml, 'html.parser')
         rootfile_element = container_soup.find("rootfile", attrs={"full-path": True})
         full_path = rootfile_element.get("full-path")
         opf_flie = zip_file.read(full_path).decode()
 
-        opf_soup = BeautifulSoup(opf_flie, 'xml')
+        opf_soup = BeautifulSoup(opf_flie, 'html.parser')
         spine_element = opf_soup.find("spine")
         itemref_element = spine_element.find_all("itemref")
         idref_list = [element.get("idref") for element in itemref_element]
@@ -36,7 +39,7 @@ def extract_content(epub_path: str):
         if guide_element:
             toc_href = guide_element.find("reference", type="toc").get("href")
         else:
-            toc_element = manifest_element.find("item", id=re.compile(r"toc"))
+            toc_element = manifest_element.find_all("item", id=re.compile(r"toc"))[-1]
 
             if not toc_element:
                 toc_element = manifest_element.find("item", id=re.compile(r"ncx"))
@@ -61,7 +64,7 @@ def extract_content(epub_path: str):
         epub_content = [(file_path, zip_file.read(file_path).decode()) for file_path in content_path]
         epub_toc = zip_file.read(toc_path).decode()
     
-    toc_soup = BeautifulSoup(epub_toc, 'xml')
+    toc_soup = BeautifulSoup(epub_toc, 'html.parser')
     toc_a_tag = toc_soup.body.find_all("a", href=True)
     toc_data = {a_tag.get_text(): a_tag.get("href").split("#") for a_tag in toc_a_tag}
     toc_id = [data[-1] for data in toc_data.values() if len(data) == 2]
@@ -73,7 +76,7 @@ def extract_content(epub_path: str):
 
         page_text: list[str] = []
         for _, content in epub_content:
-            content_soup = BeautifulSoup(content, 'xml')
+            content_soup = BeautifulSoup(content, 'html.parser')
             find_id_element = content_soup.body.find_all(id=id_pattern)
 
             if find_id_element:
@@ -128,7 +131,7 @@ def extract_content(epub_path: str):
             title, title_path = next(toc_data_iter, (None, None))
         
         if contents:
-            content_soup = BeautifulSoup(content, 'xml')
+            content_soup = BeautifulSoup(content, 'html.parser')
             contents[-1]["content"] += f"\n{content_soup.body.get_text()}\n"
     
     for content in contents:
