@@ -7,8 +7,8 @@ from tqdm import tqdm
 from bs4 import BeautifulSoup, element
 
 
-EBOOK_NAME = "Mushoku_Isekai_Dasu_v01-26_epub"
-#EBOOK_NAME = "[北山結莉] 精霊幻想記 第27巻 ep"
+#EBOOK_NAME = "Mushoku_Isekai_Dasu_v01-26_epub"
+EBOOK_NAME = "[北山結莉] 精霊幻想記 第27巻 ep"
 
 EBOOK_PATH = f"/home/ifw/epub/{EBOOK_NAME}"
 SAVE_DIR_PATH = f"./epub_chapter_content/{EBOOK_NAME}_test"
@@ -51,14 +51,14 @@ def extract_content(epub_path: str):
                 toc_path = file_name
                 break
 
-        content_path = []
+        content_path: list[str] = []
         for href in content_href:
             for file_name in zip_file.namelist():
                 if href in file_name:
                     content_path.append(file_name)
                     break
 
-        epub_content = [zip_file.read(file_path).decode() for file_path in content_path]
+        epub_content = [(file_path, zip_file.read(file_path).decode()) for file_path in content_path]
         epub_toc = zip_file.read(toc_path).decode()
     
     toc_soup = BeautifulSoup(epub_toc, 'xml')
@@ -72,7 +72,7 @@ def extract_content(epub_path: str):
         id_pattern = re.compile(f"({id_pattern})")
 
         page_text: list[str] = []
-        for content in epub_content:
+        for _, content in epub_content:
             content_soup = BeautifulSoup(content, 'xml')
             find_id_element = content_soup.body.find_all(id=id_pattern)
 
@@ -110,6 +110,31 @@ def extract_content(epub_path: str):
         contents_clean = [content for content in contents if content["content"]]
 
         return contents_clean
+
+    toc_data_iter = iter(toc_data.items())
+    title, title_path = next(toc_data_iter)
+
+    contents: list[dict[str, str]] = []
+    for file_path, content in epub_content:
+        if title_path and title_path[0] in file_path:
+            contents.append({
+                "title": title,
+                "content": ""
+            })
+            title, title_path = next(toc_data_iter, (None, None))
+        
+        if contents:
+            content_soup = BeautifulSoup(content, 'xml')
+            contents[-1]["content"] += f"\n{content_soup.body.get_text()}\n"
+    
+    for content in contents:
+        content["content"] = re.sub(
+            pattern=r"\n+",
+            repl="\n",
+            string=content["content"].strip()
+        )
+
+    return contents
 
 
 if not os.path.isdir(SAVE_DIR_PATH):
