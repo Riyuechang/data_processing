@@ -150,5 +150,3 @@ for epub_file in tqdm_progress:
 
     with open(f"{SAVE_DIR_PATH}/{epub_file.rstrip('.epub')}.json", 'w', encoding='utf-8') as file:
         json.dump(epub_content, file, indent=4, ensure_ascii=False)
-
-    break
