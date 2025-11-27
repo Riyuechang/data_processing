@@ -6,6 +6,9 @@ from PIL import Image
 from tqdm import tqdm
 
 
+IMAGE_SIZE = 512
+
+
 def array_to_list(array):
     if isinstance(array, np.ndarray):
         return [array_to_list(i) for i in array.tolist()]
@@ -49,7 +52,7 @@ def polygons_overlap(
     
     min_gap = min(gap_list)
 
-    return min_gap >= threshold, min_gap
+    return min_gap >= -threshold, min_gap
 
 def orientation(a, b, c):
     return (b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0])
@@ -78,8 +81,7 @@ def segments_intersect(A, B, C, D):
 
 def is_point_inside(
     polygon: np.ndarray, 
-    point: np.ndarray,
-    threshold: float = 0
+    point: np.ndarray
 ):
     cross_list = []
 
@@ -93,7 +95,7 @@ def is_point_inside(
         cross = point_1_to_3[0] * point_2_to_3[1] - point_1_to_3[1] * point_2_to_3[0]
         cross_list.append(cross)
 
-    return all(cross >= threshold for cross in cross_list) or all(cross <= threshold for cross in cross_list)
+    return all(cross >= 0 for cross in cross_list) or all(cross <= 0 for cross in cross_list)
 
 def point_to_segment_distance(point_a, point_b, point_o):
     line_ab = point_b - point_a
@@ -131,41 +133,62 @@ def line_intersection(point_a, point_b, point_c, point_d):
     
     return (intersection_x, intersection_y)
 
-def get_merge_bbox(*polygons, image_size: int):
+def get_merge_bbox(*polygons, image_width: int, image_height: int):
     all_xy_point: np.ndarray = np.concatenate(polygons)
 
-    distance_0_0 = [
-        (abs(np.linalg.norm(xy_point - np.array([0, 0]))), xy_point) 
-        for xy_point in all_xy_point
-    ]
-    distance_0_max = [
-        (abs(np.linalg.norm(xy_point - np.array([0, image_size]))), xy_point) 
-        for xy_point in all_xy_point
-    ]
-    distance_max_max = [
-        (abs(np.linalg.norm(xy_point - np.array([image_size, image_size]))), xy_point) 
-        for xy_point in all_xy_point
-    ]
-    distance_max_0 = [
-        (abs(np.linalg.norm(xy_point - np.array([image_size, 0]))), xy_point) 
-        for xy_point in all_xy_point
-    ]
-
-    _, closest_0_0 = min(distance_0_0)
-    _, closest_0_max = min(distance_0_max)
-    _, closest_max_max = min(distance_max_max)
-    _, closest_max_0 = min(distance_max_0)
-
-    new_bbox = np.concatenate((
-        [closest_0_0],
-        [closest_max_0],
-        [closest_max_max],
-        [closest_0_max] 
+    canvas_bbox = np.concatenate((
+        [[0, 0]],
+        [[image_width, 0]],
+        [[image_width, image_height]],
+        [[0, image_height]] 
     ))
 
-    all_xy_point_sort = []
-    for point_index, point in enumerate(all_xy_point):
-        distance = []
+    distances_list = [
+        sorted([
+            (abs(np.linalg.norm(xy_point - canvas_point)), xy_point) 
+            for xy_point in all_xy_point
+        ], key=lambda x:x[0])
+        for canvas_point in canvas_bbox
+    ]
+
+    distances_list_clean = [
+        [distance for _, distance in distances] 
+        for distances in distances_list
+    ]
+
+    new_bbox = np.concatenate(tuple([[distances[0]] for distances in distances_list_clean]))
+
+    for index in range(len(new_bbox)):
+        point_a = new_bbox[index]
+        point_b = new_bbox[(index + 1) % len(new_bbox)]
+
+        if np.array_equal(point_a, point_b):
+            new_point_a = distances_list_clean[index][1]
+            new_point_b = distances_list_clean[(index + 1) % len(new_bbox)][1]
+
+            if np.array_equal(new_point_a, new_point_b):
+                to_canvas_bbox_1_distance = np.linalg.norm(canvas_bbox[index] - new_point_a)
+                to_canvas_bbox_2_distance = np.linalg.norm(canvas_bbox[(index + 1) % len(new_bbox)] - new_point_a)
+
+                if to_canvas_bbox_1_distance < to_canvas_bbox_2_distance:
+                    new_bbox[index] = new_point_a
+                    continue
+
+                new_bbox[(index + 1) % len(new_bbox)] = new_point_a
+                continue
+
+            new_point_a_to_canvas_bbox_distance = np.linalg.norm(canvas_bbox[index] - new_point_a)
+            new_point_a_to_canvas_bbox_distance = np.linalg.norm(canvas_bbox[(index + 1) % len(new_bbox)] - new_point_b)
+
+            if new_point_a_to_canvas_bbox_distance < new_point_a_to_canvas_bbox_distance:
+                new_bbox[index] = new_point_a
+                continue
+
+            new_bbox[(index + 1) % len(new_bbox)] = new_point_b
+
+    all_xy_point_sort: list[tuple[float, np.ndarray, int]] = []
+    for point in all_xy_point:
+        distance: list[tuple[float, int]] = []
 
         for index in range(len(new_bbox)):
             to_segment_distance = point_to_segment_distance(
@@ -173,12 +196,12 @@ def get_merge_bbox(*polygons, image_size: int):
                 new_bbox[(index + 1) % len(new_bbox)], 
                 point
             )
-            distance.append(to_segment_distance)
+            distance.append((to_segment_distance, index))
         
-        min_distance = min(distance)
+        min_distance, min_distance_index = min(distance)
 
         all_xy_point_sort.append(
-            (min_distance, point_index, new_bbox[index], new_bbox[(index + 1) % len(new_bbox)])
+            (min_distance, point, min_distance_index)
         )
 
     all_xy_point_sort.sort(
@@ -186,24 +209,24 @@ def get_merge_bbox(*polygons, image_size: int):
         key=lambda x: x[0]
     )
 
-    for _, point, _, _ in all_xy_point_sort:
-        if is_point_inside(new_bbox, point, threshold=0):
+    for _, point, point_a_index in all_xy_point_sort:
+        if is_point_inside(new_bbox, point):
             continue
 
-        distance_from_point = [
-            (np.linalg.norm(box_point - point), index) 
-            for index, box_point in enumerate(new_bbox)
-        ]
-        _, min_distance_point_index = min(distance_from_point)
-        
-        point_a = new_bbox[min_distance_point_index]
-        point_b = new_bbox[min_distance_point_index - 1]
-        point_c = new_bbox[(min_distance_point_index + 1) % len(new_bbox)]
+        point_a = new_bbox[point_a_index]
+        point_b = new_bbox[(point_a_index + 1) % len(new_bbox)]
 
-        if segments_intersect(point_a, point_b, point, point_c):
+        to_point_a_distance = np.linalg.norm(point_a - point)
+        to_point_b_distance = np.linalg.norm(point_b - point)
+
+        if to_point_a_distance < to_point_b_distance:
+            min_distance_point_index = point_a_index
+            point_c = new_bbox[point_a_index - 1]
             new_xy = line_intersection(point_a, point_c, point, point_b)
-        else:#if segments_intersect(point_a, point_c, point, point_b):
-            new_xy = line_intersection(point_a, point_b, point, point_c)
+        else:
+            min_distance_point_index = (point_a_index + 1) % len(new_bbox)
+            point_c = new_bbox[(point_a_index + 2) % len(new_bbox)]
+            new_xy = line_intersection(point_b, point_c, point, point_a)
 
         new_bbox[min_distance_point_index] = np.array(new_xy)
 
@@ -214,12 +237,22 @@ if __name__ == "__main__":
     MANGA_OCR_DATA_PATH = "/media/ifw/GameFile/linux_cache/data_unprocessed/manga_image_ocr.parquet"
 
     MIN_THRESHOLD = 0
+    MIN_SCORES = 0.8
 
 
     dataset = pd.read_parquet(MANGA_OCR_DATA_PATH)
 
     for data in tqdm(dataset.itertuples(), total=len(dataset), desc="duplicated"):
-        ocr_bboxes: np.ndarray = data.rec_polys
+        rec_polys: np.ndarray = data.rec_polys
+
+        ocr_bboxes = []
+        not_ocr_bboxes = []
+        for index, bboxe in enumerate(rec_polys):
+            if dataset["rec_scores"][index] >= MIN_SCORES:
+                ocr_bboxes.append(bboxe)
+                continue
+
+            not_ocr_bboxes.append(bboxe)
 
         overlap_dict = defaultdict(list)
         for index, ocr_bboxe in enumerate(ocr_bboxes):
@@ -253,14 +286,28 @@ if __name__ == "__main__":
         overlaps = list(range(len(ocr_bboxes)))
         overlap_not_in_grouping =[]
         for overlap in overlaps:
-            in_grouping = False
 
             for group in overlap_grouping:
                 if overlap in group:
-                    in_grouping = True
                     break
-            
-            if not in_grouping:
+            else:
                 overlap_not_in_grouping.append(overlap)
+        
+        overlap_ocr_bboxes = [
+            [ocr_bboxes[grouping_index] for grouping_index in list(grouping)]
+            for grouping in overlap_grouping
+        ]
+
+        not_overlap_ocr_bboxes = [
+            ocr_bboxes[grouping_index]
+            for grouping_index in overlap_not_in_grouping
+        ]
+
+        new_merge_bboxes = [
+            get_merge_bbox(*grouping, image_size=IMAGE_SIZE).tolist()
+            for grouping in overlap_ocr_bboxes
+        ]
+
+        new_merge_bboxes.extend(not_overlap_ocr_bboxes)
 
         break
