@@ -11,7 +11,8 @@ from tqdm import tqdm
 
 
 #EBOOK_NAME = "Mushoku_Isekai_Dasu_v01-26_epub"
-EBOOK_NAME = "[北山結莉] 精霊幻想記 第27巻 ep"
+#EBOOK_NAME = "[北山結莉] 精霊幻想記 第27巻 ep"
+EBOOK_NAME = "關於我在無意間被隔壁的天使變成廢柴這件事_v1-10_日文_epub"
 
 EBOOK_PATH = f"/home/ifw/epub/{EBOOK_NAME}"
 SAVE_DIR_PATH = f"./epub_chapter_content/{EBOOK_NAME}"

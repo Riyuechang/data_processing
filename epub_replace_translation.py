@@ -88,7 +88,7 @@ def replace_translation(ebook: epub.EpubBook, translation_dataaet: list[dict[str
 
                     break
                 else:
-                    assert True, "對齊錯誤"
+                    assert False, "對齊錯誤"
         
     for index, chapter_content in enumerate(ebook_content):
         chapter_content.set_content(str(p_tag_dict["soup"][index]))

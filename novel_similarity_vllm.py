@@ -8,14 +8,13 @@ from transformers import AutoTokenizer
 from vllm import LLM
 
 
-
 BATCH_SIZE = 256
 SLIDING_WINDOW_SIZE = 2046
 MAX_SENTENCE_LEN = 256
 
 MAX_TOKENS = SLIDING_WINDOW_SIZE + 2 #8192
 MAX_BATCHED_TOKENS = 131072 #32768 8192 16384 65536
-VRAM_UTILIZATION = 0.95
+VRAM_UTILIZATION = 0.9
 
 #MODEL_NAME = "embeddinggemma-300m"
 #MODEL_NAME = "Qwen3-Embedding-0.6B"
@@ -23,7 +22,8 @@ MODEL_NAME = "jina-embeddings-v3"
 MODEL_PATH = f"/media/ifw/GameFile/linux_cache/embedding_model/{MODEL_NAME}"
 
 #NOVEL_NAME = "test"
-NOVEL_NAME = "Otonari_no_Tenshisama_ni_Itsu_v01-10_epub"
+NOVEL_NAME = "[北山結莉] 精霊幻想記 第27巻 ep"
+#NOVEL_NAME = "Otonari_no_Tenshisama_ni_Itsu_v01-10_epub"
 #NOVEL_NAME = "Heru_modo_Yarikomizuki_no_gema_v01-06_epub"
 #NOVEL_NAME = "Heru_modo_Yarikomizuki_no_gema_v07-08_epub"
 #NOVEL_NAME = "[依空まつり]_サイレント・ウィッチ_沈黙の魔女の隠しごと_第09巻_epub"

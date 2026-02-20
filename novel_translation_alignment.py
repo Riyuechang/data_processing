@@ -16,7 +16,7 @@ FREQUENCY_PENALTY = 0.2
 
 MAX_REQUESTS = 8 #32 20 8 64 128 256 
 MAX_BATCHED_TOKENS = 8192 #32768 16384 65536
-VRAM_UTILIZATION = 0.95
+VRAM_UTILIZATION = 0.9
 
 MODEL_NAME = "Sakura-14B-Qwen2.5-v1.0-GGUF/sakura-14b-qwen2.5-v1.0-iq4xs.gguf"
 #MODEL_NAME = "Sakura-7B-Qwen2.5-v1.0-GGUF/sakura-7b-qwen2.5-v1.0-iq4xs.gguf"
@@ -27,7 +27,8 @@ TOKENIZER_NAME = "Sakura-1.5B-Qwen2.5-v1.0-HF"
 TOKENIZER_PATH = f"/media/ifw/GameFile/linux_cache/LLMModel/{TOKENIZER_NAME}"
 
 #NOVEL_NAME = "test"
-NOVEL_NAME = "Otonari_no_Tenshisama_ni_Itsu_v01-10_epub"
+NOVEL_NAME = "[北山結莉] 精霊幻想記 第27巻 ep"
+#NOVEL_NAME = "Otonari_no_Tenshisama_ni_Itsu_v01-10_epub"
 #NOVEL_NAME = "[依空まつり]_サイレント・ウィッチ_沈黙の魔女の隠しごと_第09巻_epub"
 #NOVEL_NAME = "Heru_modo_Yarikomizuki_no_gema_v01-06_epub"
 #NOVEL_NAME = "Heru_modo_Yarikomizuki_no_gema_v07-08_epub"
@@ -36,7 +37,8 @@ NOVEL_PATH = f"./translation/{NOVEL_NAME}"
 USE_GLOSSARY = True
 #GLOSSARY_PATH = "./translation/sakura_gpt_dict.json"
 #GLOSSARY_PATH = "./translation/sakura_gpt_dict_沈黙の魔女の隠しごと.json"
-GLOSSARY_PATH = "./translation/sakura_gpt_dict_お隣の天使様にいつの間にか駄目人間にされていた件.json"
+#GLOSSARY_PATH = "./translation/sakura_gpt_dict_お隣の天使様にいつの間にか駄目人間にされていた件.json"
+GLOSSARY_PATH = "./translation/sakura_gpt_dict_精霊幻想記.json"
 
 SAVE_DIR_PATH = f"./translation/{NOVEL_NAME}"
 
