@@ -29,7 +29,7 @@ NOVEL_NAME = "test"
 #NOVEL_NAME = "關於我在無意間被隔壁的天使變成廢柴這件事_v01-10_alignment"
 NOVEL_PATH = f"/media/ifw/GameFile/linux_cache/data_processed/{NOVEL_NAME}"
 
-PROPMT_PATH = "./propmt/jp_tw_llm_alignment_check_propmt.md"
+PROPMT_PATH = "./jp_tw_llm_alignment_check_propmt.md"
 
 SAVE_DIR_PATH = f"/media/ifw/GameFile/linux_cache/data_processed/{NOVEL_NAME}_llm_alignment_check"
 
@@ -49,6 +49,9 @@ def vllm_add_request(input_text: str, request_id: str):
         params=generation_parameters
     )
 
+
+with open(PROPMT_PATH, "r", encoding="utf-8") as file:
+    alignment_propmt = file.read()
 
 generation_parameters = SamplingParams(
     max_tokens=MAX_TOKENS,
@@ -77,9 +80,6 @@ engine_args = EngineArgs(
 )
 llm_engine = LLMEngine.from_engine_args(engine_args)
 tokenizer = AutoTokenizer.from_pretrained(TOKENIZER_PATH)
-
-with open(PROPMT_PATH, "r", encoding="utf-8") as file:
-    alignment_propmt = file.read()
 
 if not os.path.isdir(SAVE_DIR_PATH):
     os.mkdir(SAVE_DIR_PATH)
