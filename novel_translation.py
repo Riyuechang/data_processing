@@ -60,22 +60,22 @@ def vllm_add_request(input_text: str, request_id: str):
         tokenize=False
     )
 
-    params = SamplingParams(
-        max_tokens=MAX_TOKENS,
-        temperature=TEMPERATURE,
-        min_p=MIN_P,
-        top_p=TOP_P,
-        #top_k=50,
-        frequency_penalty=FREQUENCY_PENALTY,
-        #seed=None
-    )
     llm_engine.add_request(
         request_id=request_id,
         prompt=prompt, 
-        params=params
+        params=generation_parameters
     )
 
 
+generation_parameters = SamplingParams(
+    max_tokens=MAX_TOKENS,
+    temperature=TEMPERATURE,
+    min_p=MIN_P,
+    top_p=TOP_P,
+    #top_k=50,
+    frequency_penalty=FREQUENCY_PENALTY,
+    #seed=None
+)
 engine_args = EngineArgs(
     model=MODEL_PATH, 
     tokenizer=TOKENIZER_PATH,
@@ -115,10 +115,7 @@ for novel_file in tqdm_progress:
 
     for chapter_index, chapter in enumerate(dataset):
         for chunk_index, chunk in enumerate(chapter["content"]):
-            if chunk[-1] == "\n":
-                newline = "newline"
-            else:
-                newline = "None"
+            newline = "\n" if chunk[-1] == "\n" else ""
 
             vllm_add_request(
                 input_text=chunk.strip("\n"),
@@ -130,9 +127,7 @@ for novel_file in tqdm_progress:
 
         for output in request:
             if output.finished:
-                chapter_index, chunk_index, newline  = output.request_id.split(":")
-
-                add_newline = "\n" if newline == "newline" else ""
+                chapter_index, chunk_index, add_newline  = output.request_id.split(":")
 
                 dataset[int(chapter_index)]["content"][int(chunk_index)] = {
                     "jp": dataset[int(chapter_index)]["content"][int(chunk_index)],
