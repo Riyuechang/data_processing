@@ -110,14 +110,14 @@ for novel_file in tqdm_progress:
 
             llm_response = output.outputs[0].text
             answer = re.findall(r"<answer>\n(True|False)\n</answer>", llm_response)
-            answer = answer[-1] if answer else "True_unaligned"
+            answer = answer[-1] if answer else "True_NoAnswer"
 
             if "True" in answer:
                 not_pass_tag = "not_pass_"
 
             chapter_index, chunk_index = output.request_id.split(":")
 
-            dataset[int(chapter_index)]["alignment"][int(chunk_index)]["llm_response"] = llm_response if answer == "True" else ""
+            dataset[int(chapter_index)]["alignment"][int(chunk_index)]["llm_response"] = llm_response if "True" in answer else ""
             dataset[int(chapter_index)]["alignment"][int(chunk_index)]["unaligned"] = answer
 
         if not llm_engine.has_unfinished_requests():
