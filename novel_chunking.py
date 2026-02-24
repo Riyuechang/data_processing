@@ -27,8 +27,7 @@ MODEL_PATH = f"/media/ifw/GameFile/linux_cache/embedding_model/{MODEL_NAME}"
 
 def text_chunking(
     chunks: list[list[str]], 
-    chunks_values: list[list[float]],
-    mode: Literal["max", "min"]
+    chunks_values: list[list[float]]
 ) -> list[str]:
     not_exceeding_limits = True
     for chunk in  chunks:
@@ -48,19 +47,16 @@ def text_chunking(
 
         new_values = [mean(values[i:min(i + BACKWARD_WINDOW_SIZE, len(values))]) for i in range(len(values))]
 
-        if mode == "max":
-            _, value_index = max([(value, index) for index, value in enumerate(new_values)])
-        else:
-            _, value_index = min([(value, index) for index, value in enumerate(new_values)])
+        _, value_index = min([(value, index) for index, value in enumerate(new_values)])
 
         new_chunks.extend([chunk[:value_index], chunk[value_index:]])
         new_values_1 = values[:value_index]
         new_values_2 = values[value_index:]
-        new_values_1[0] = 0 if mode == "max" else 1
-        new_values_2[0] = 0 if mode == "max" else 1
+        new_values_1[0] = 1
+        new_values_2[0] = 1
         new_chunks_values.extend([new_values_1, new_values_2])
     
-    return text_chunking(new_chunks, new_chunks_values, mode=mode)
+    return text_chunking(new_chunks, new_chunks_values)
 
 def small_chunk_merging(chunks: list[str]) -> list[str]:
     if len(chunks) == 1:
@@ -125,22 +121,13 @@ for novel_file in tqdm_progress:
     with open(f"{NOVEL_PATH}/{novel_file}", "r", encoding="utf-8") as file:
         dataset: list[dict[str, list[str] | list[float]]] = json.load(file)
     
-    mode: Literal["max", "min"] = "max"
-    if "similarity" in dataset[0].keys():
-        mode = "min"
-    
     for data in dataset:
         data["content"] = small_chunk_merging(text_chunking(
             [data["content"]], 
-            [data["loss"]] if mode == "max" else [data["similarity"]],
-            mode=mode
+            [data["similarity"]]
         ))
 
-        if mode == "max":
-            data.pop("loss")
-            data.pop("perplexity")
-        else:
-            data.pop("similarity")
+        data.pop("similarity")
     
     with open(f"{SAVE_DIR_PATH}/{novel_file}", 'w', encoding='utf-8') as file:
         json.dump(dataset, file, indent=4, ensure_ascii=False)
