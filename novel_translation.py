@@ -79,13 +79,16 @@ generation_parameters = SamplingParams(
 engine_args = EngineArgs(
     model=MODEL_PATH, 
     tokenizer=TOKENIZER_PATH,
+
     #dtype=torch.float16, 
     #quantization="bitsandbytes", 
     #load_format="bitsandbytes",
+
     gpu_memory_utilization=VRAM_UTILIZATION,
     max_model_len=MAX_TOKENS,
     max_num_batched_tokens=MAX_BATCHED_TOKENS,
     max_num_seqs=MAX_REQUESTS,
+
     enable_prefix_caching=True,
     enforce_eager=True,
     #swap_space=8,
