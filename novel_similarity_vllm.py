@@ -3,26 +3,30 @@ import json
 
 import torch
 from torch.nn.functional import cosine_similarity
+
+from vllm import LLM
 from tqdm import tqdm
 from transformers import AutoTokenizer
-from vllm import LLM
 
 
-BATCH_SIZE = 256
-SLIDING_WINDOW_SIZE = 2046
+VLLM_PROGRESS_BAR = True
+
 MAX_SENTENCE_LEN = 256
+SLIDING_WINDOW_SIZE = 512
+BACKWARD_WINDOW_SIZE = 64
+MAX_TOKENS = SLIDING_WINDOW_SIZE + 2 
 
-MAX_TOKENS = SLIDING_WINDOW_SIZE + 2 #8192
-MAX_BATCHED_TOKENS = 131072 #32768 8192 16384 65536
+MAX_REQUESTS = 32 #32 96 256
+MAX_BATCHED_TOKENS = MAX_REQUESTS * MAX_TOKENS #8192 16384 32768 65536 131072
 VRAM_UTILIZATION = 0.9
 
-#MODEL_NAME = "embeddinggemma-300m"
+#MODEL_NAME = "jina-embeddings-v3"
 #MODEL_NAME = "Qwen3-Embedding-0.6B"
-MODEL_NAME = "jina-embeddings-v3"
+MODEL_NAME = "Qwen3-Embedding-8B"
 MODEL_PATH = f"/media/ifw/GameFile/linux_cache/embedding_model/{MODEL_NAME}"
 
-#NOVEL_NAME = "test"
-NOVEL_NAME = "[北山結莉] 精霊幻想記 第27巻 ep"
+NOVEL_NAME = "test"
+#NOVEL_NAME = "[北山結莉] 精霊幻想記 第27巻 ep"
 #NOVEL_NAME = "Otonari_no_Tenshisama_ni_Itsu_v01-10_epub"
 #NOVEL_NAME = "Heru_modo_Yarikomizuki_no_gema_v01-06_epub"
 #NOVEL_NAME = "Heru_modo_Yarikomizuki_no_gema_v07-08_epub"
@@ -31,10 +35,6 @@ NOVEL_PATH = f"./epub_chapter_content/{NOVEL_NAME}"
 
 SAVE_DIR_PATH = f"./novel_similarity/{NOVEL_NAME}"
 
-
-def total_proportion(numbers: list[int | float]):
-    number_sum = sum(numbers)
-    return [number / number_sum for number in numbers]
 
 def pre_segmentation(
     text: str, 
@@ -113,7 +113,7 @@ def similarity_distribution(sentences: list[str]):
             output.outputs.embedding 
             for output in model.embed(
                 texts,
-                use_tqdm=False
+                use_tqdm=VLLM_PROGRESS_BAR
             )
         ])
         for texts in [contexts, sentences[1:]]
@@ -133,14 +133,19 @@ if __name__ == "__main__":
     tokenizer = AutoTokenizer.from_pretrained(MODEL_PATH)
     model = LLM(
         model=MODEL_PATH, 
-        trust_remote_code=True,
+
         dtype="bfloat16",
+        quantization="bitsandbytes", 
+        #load_format="bitsandbytes",
+
         gpu_memory_utilization=VRAM_UTILIZATION,
         max_model_len=MAX_TOKENS,
         max_num_batched_tokens=MAX_BATCHED_TOKENS,
-        max_num_seqs=BATCH_SIZE,
+        max_num_seqs=MAX_REQUESTS,
+
+        trust_remote_code=True,
         enable_prefix_caching=True,
-        #enforce_eager=True,
+        enforce_eager=True,
         task="embed"
     )
 
