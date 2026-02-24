@@ -98,7 +98,11 @@ def similarity_distribution(sentences: list[str]):
     for sentence_index in range(1, len(sentences)):
         context = ""
         context_token_count = 0
-        for context_sentence, context_sentence_token_count in reversed(list(zip(sentences[:sentence_index], sentences_token_count[:sentence_index]))):
+
+        for context_sentence, context_sentence_token_count in reversed(list(zip(
+            sentences[:sentence_index], 
+            sentences_token_count[:sentence_index]
+        ))):
             context_token_count += context_sentence_token_count
 
             if context_token_count > SLIDING_WINDOW_SIZE:
@@ -107,7 +111,25 @@ def similarity_distribution(sentences: list[str]):
             context = context_sentence + context
         
         contexts.append(context)
-    
+
+    sentences_backward = []
+    for sentence_index in range(1, len(sentences)):
+        backward_sentence = sentences[sentence_index]
+        backward_sentence_token_count = len(sentences[sentence_index])
+
+        for context_sentence, context_sentence_token_count in zip(
+            sentences[sentence_index + 1:], 
+            sentences_token_count[sentence_index + 1:]
+        ):
+            backward_sentence_token_count += context_sentence_token_count
+
+            if backward_sentence_token_count > BACKWARD_WINDOW_SIZE:
+                break
+
+            backward_sentence += context_sentence
+        
+        sentences_backward.append(backward_sentence)
+
     contexts_embeddings, sentences_embeddings = [
         torch.tensor([
             output.outputs.embedding 
@@ -116,7 +138,7 @@ def similarity_distribution(sentences: list[str]):
                 use_tqdm=VLLM_PROGRESS_BAR
             )
         ])
-        for texts in [contexts, sentences[1:]]
+        for texts in [contexts, sentences_backward]
     ]
 
     distributions: list[float] = [1]
