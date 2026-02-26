@@ -9,7 +9,7 @@ from tqdm import tqdm
 from transformers import AutoTokenizer
 
 
-VLLM_PROGRESS_BAR = True
+VLLM_PROGRESS_BAR = False
 
 MAX_SENTENCE_LEN = 256
 SLIDING_WINDOW_SIZE = 512
@@ -35,6 +35,28 @@ NOVEL_PATH = f"./epub_chapter_content/{NOVEL_NAME}"
 
 SAVE_DIR_PATH = f"./novel_similarity/{NOVEL_NAME}"
 
+SEGMENTATION_SYMBOL_1 = ["\n"]
+SEGMENTATION_SYMBOL_2 = ["」", "』", "）", ")"]
+SEGMENTATION_SYMBOL_3 = ["。", ".", "！", "!", "？", "?", "；", ";"]
+SEGMENTATION_SYMBOL_4 = ["，", ",", "：", ":", "、"]
+SEGMENTATION_SYMBOL_ALL = (
+    SEGMENTATION_SYMBOL_1
+    + SEGMENTATION_SYMBOL_2
+    + SEGMENTATION_SYMBOL_3
+    + SEGMENTATION_SYMBOL_4
+)
+
+
+def truncate_middle(text, max_length, ellipsis="..."):
+    if len(text) <= max_length:
+        return text
+
+    remaining_len = max_length - len(ellipsis)
+
+    front_len = remaining_len // 2
+    back_len = remaining_len - front_len
+
+    return text[:front_len] + ellipsis + text[-back_len:]
 
 def pre_segmentation(
     text: str, 
@@ -56,11 +78,6 @@ def pre_segmentation(
     return text_seg
 
 def sentence_segmentation(text: str):
-    SEGMENTATION_SYMBOL_1 = ["\n"]
-    SEGMENTATION_SYMBOL_2 = ["\n", "」", "』", "）", ")"]
-    SEGMENTATION_SYMBOL_3 = ["\n", "。", ".", "！", "!", "？", "?", "；", ";"]
-    SEGMENTATION_SYMBOL_4 = ["\n", "，", ",", "：", ":", "、"]
-
     sentences = pre_segmentation(text, SEGMENTATION_SYMBOL_1)
 
     def sentence_len_check(
@@ -91,8 +108,62 @@ def sentence_segmentation(text: str):
 
     return sentences
 
+def text_to_tokenize(text: str) -> list[str]:
+    input_ids = tokenizer(text, add_special_tokens=False)["input_ids"]
+    return [tokenizer.decode([input_id]) for input_id in input_ids]
+
+def sentence_truncation_for_token(
+    sentence: str, 
+    max_token_count: int,
+    reverse: bool = False,
+    discard_truncated_char: bool = False
+):
+    if not max_token_count:
+        return ""
+    
+    sentence_token: list[str] = text_to_tokenize(sentence)
+    
+    if reverse:
+        sentence_token.reverse()
+
+    new_sentence_token = sentence_token[-max_token_count:]
+
+    find_the_truncated_char = False
+    for token_index, token in enumerate(new_sentence_token):
+        new_token = token
+
+        if reverse:
+            new_token = token[::-1]
+
+        for char_index, char in enumerate(new_token):
+            if char not in SEGMENTATION_SYMBOL_ALL:
+                continue
+
+            find_the_truncated_char = True
+            new_token_index = token_index
+            new_char_index = char_index
+            new_token = new_token[char_index + int(discard_truncated_char):]
+
+            if reverse:
+                new_token = new_token[::-1]
+
+            if find_the_truncated_char:
+                break
+
+        if find_the_truncated_char:
+            break
+    
+    if find_the_truncated_char:
+        new_sentence_token = new_sentence_token[new_token_index:]
+        new_sentence_token[new_char_index] = new_token
+
+    if reverse:
+        new_sentence_token.reverse()
+
+    return "".join(new_sentence_token)
+
 def similarity_distribution(sentences: list[str]):
-    sentences_token_count = [len(tokenizer.tokenize(sentence, add_special_tokens=False)) for sentence in sentences]
+    sentences_token_count = [len(tokenizer(sentence, add_special_tokens=False)) for sentence in sentences]
 
     contexts: list[str] = []
     for sentence_index in range(1, len(sentences)):
@@ -103,30 +174,42 @@ def similarity_distribution(sentences: list[str]):
             sentences[:sentence_index], 
             sentences_token_count[:sentence_index]
         ))):
-            context_token_count += context_sentence_token_count
-
-            if context_token_count > SLIDING_WINDOW_SIZE:
+            if context_token_count + context_sentence_token_count > SLIDING_WINDOW_SIZE:
+                remaining_window_size = SLIDING_WINDOW_SIZE - context_token_count
+                new_context_sentence = sentence_truncation_for_token(
+                    context_sentence, 
+                    remaining_window_size,
+                    discard_truncated_char=True
+                )
+                context = new_context_sentence + context
                 break
 
             context = context_sentence + context
+            context_token_count += context_sentence_token_count
         
         contexts.append(context)
 
     sentences_backward = []
     for sentence_index in range(1, len(sentences)):
         backward_sentence = sentences[sentence_index]
-        backward_sentence_token_count = len(sentences[sentence_index])
+        backward_sentence_token_count = sentences_token_count[sentence_index]
 
         for context_sentence, context_sentence_token_count in zip(
             sentences[sentence_index + 1:], 
             sentences_token_count[sentence_index + 1:]
         ):
-            backward_sentence_token_count += context_sentence_token_count
-
-            if backward_sentence_token_count > BACKWARD_WINDOW_SIZE:
+            if backward_sentence_token_count + context_sentence_token_count > BACKWARD_WINDOW_SIZE:
+                remaining_window_size = SLIDING_WINDOW_SIZE - backward_sentence_token_count
+                new_backward_sentence = sentence_truncation_for_token(
+                    context_sentence, 
+                    remaining_window_size,
+                    reverse=True
+                )
+                backward_sentence += new_backward_sentence
                 break
 
             backward_sentence += context_sentence
+            backward_sentence_token_count += context_sentence_token_count
         
         sentences_backward.append(backward_sentence)
 
@@ -178,12 +261,12 @@ if __name__ == "__main__":
 
     tqdm_progress = tqdm(novel_file_list)
     for novel_file in tqdm_progress:
-        tqdm_progress.set_description(novel_file)
-
         with open(f"{NOVEL_PATH}/{novel_file}", "r", encoding="utf-8") as file:
             dataset: list[dict[str, str]] = json.load(file)
 
-        for data in dataset:
+        for data_index,  data in enumerate(dataset):
+            tqdm_progress.set_description(f"{data_index}/{len(dataset)} {truncate_middle(novel_file, 32)}")
+
             sentences = sentence_segmentation(data["content"])
             similarity = similarity_distribution(sentences)
             data["content"] = sentences
