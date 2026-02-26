@@ -108,6 +108,68 @@ def sentence_segmentation(text: str):
 
     return sentences
 
+def text_to_tokenize(text: str) -> list[str]:
+    input_ids = tokenizer(text, add_special_tokens=False)["input_ids"]
+    return [tokenizer.decode([input_id]) for input_id in input_ids]
+
+def sentence_truncation_for_token(
+    sentence: str, 
+    max_token_count: int,
+    reverse: bool = False,
+    discard_truncated_char: bool = False
+):
+    if not max_token_count:
+        return ""
+    
+    sentence_token: list[str] = text_to_tokenize(sentence)
+    
+    if reverse:
+        sentence_token.reverse()
+
+    new_sentence_token = sentence_token[-max_token_count:]
+
+    find_the_truncated_char = False
+    for token_index, token in enumerate(new_sentence_token):
+        new_token = token
+
+        if reverse:
+            new_token = token[::-1]
+
+        for char_index, char in enumerate(new_token):
+            if char not in SEGMENTATION_SYMBOL_ALL:
+                continue
+
+            char_count = 0
+            if discard_truncated_char:
+                for char in new_token[char_index:]:
+                    if char not in SEGMENTATION_SYMBOL_ALL:
+                        break
+
+                    char_count += 1
+
+            find_the_truncated_char = True
+            new_token_index = token_index
+            new_char_index = char_index
+            new_token = new_token[char_index + char_count:]
+
+            if reverse:
+                new_token = new_token[::-1]
+
+            if find_the_truncated_char:
+                break
+
+        if find_the_truncated_char:
+            break
+    
+    if find_the_truncated_char:
+        new_sentence_token = new_sentence_token[new_token_index:]
+        new_sentence_token[new_char_index] = new_token
+
+    if reverse:
+        new_sentence_token.reverse()
+
+    return "".join(new_sentence_token)
+
 def similarity_distribution(sentences: list[str]):
     sentences_token_count = [len(tokenizer(sentence, add_special_tokens=False)) for sentence in sentences]
 
@@ -120,12 +182,18 @@ def similarity_distribution(sentences: list[str]):
             sentences[:sentence_index], 
             sentences_token_count[:sentence_index]
         ))):
-            context_token_count += context_sentence_token_count
-
-            if context_token_count > SLIDING_WINDOW_SIZE:
+            if context_token_count + context_sentence_token_count > SLIDING_WINDOW_SIZE:
+                remaining_window_size = SLIDING_WINDOW_SIZE - context_token_count
+                new_context_sentence = sentence_truncation_for_token(
+                    context_sentence, 
+                    remaining_window_size,
+                    discard_truncated_char=True
+                )
+                context = new_context_sentence + context
                 break
 
             context = context_sentence + context
+            context_token_count += context_sentence_token_count
         
         contexts.append(context)
 
@@ -138,12 +206,18 @@ def similarity_distribution(sentences: list[str]):
             sentences[sentence_index + 1:], 
             sentences_token_count[sentence_index + 1:]
         ):
-            backward_sentence_token_count += context_sentence_token_count
-
-            if backward_sentence_token_count > BACKWARD_WINDOW_SIZE:
+            if backward_sentence_token_count + context_sentence_token_count > BACKWARD_WINDOW_SIZE:
+                remaining_window_size = SLIDING_WINDOW_SIZE - backward_sentence_token_count
+                new_backward_sentence = sentence_truncation_for_token(
+                    context_sentence, 
+                    remaining_window_size,
+                    reverse=True
+                )
+                backward_sentence += new_backward_sentence
                 break
 
             backward_sentence += context_sentence
+            backward_sentence_token_count += context_sentence_token_count
         
         sentences_backward.append(backward_sentence)
 
