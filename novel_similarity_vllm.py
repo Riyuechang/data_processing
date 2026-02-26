@@ -139,10 +139,18 @@ def sentence_truncation_for_token(
             if char not in SEGMENTATION_SYMBOL_ALL:
                 continue
 
+            char_count = 0
+            if discard_truncated_char:
+                for char in new_token[char_index:]:
+                    if char not in SEGMENTATION_SYMBOL_ALL:
+                        break
+
+                    char_count += 1
+
             find_the_truncated_char = True
             new_token_index = token_index
             new_char_index = char_index
-            new_token = new_token[char_index + int(discard_truncated_char):]
+            new_token = new_token[char_index + char_count:]
 
             if reverse:
                 new_token = new_token[::-1]
