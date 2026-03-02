@@ -5,17 +5,32 @@ from statistics import mean, median, mode
 from tqdm import tqdm
 
 
-#NOVEL_NAME = "test"
-NOVEL_NAME = "[北山結莉] 精霊幻想記 第27巻 ep"
+DISPLAY_FILE_NAME_LENGTH_LIMIT = 32
+
+NOVEL_NAME = "test"
+#NOVEL_NAME = "[北山結莉] 精霊幻想記 第27巻 ep"
 #NOVEL_NAME = "Otonari_no_Tenshisama_ni_Itsu_v01-10_epub"
 #NOVEL_NAME = "Heru_modo_Yarikomizuki_no_gema_v01-06_epub"
 NOVEL_PATH = f"./novel_chunking/{NOVEL_NAME}"
+
+
+def truncate_middle(text, max_length, ellipsis="..."):
+    if len(text) <= max_length:
+        return text
+
+    remaining_len = max_length - len(ellipsis)
+
+    front_len = remaining_len // 2
+    back_len = remaining_len - front_len
+
+    return text[:front_len] + ellipsis + text[-back_len:]
+
 
 novel_file_list = [dir for dir in os.listdir(NOVEL_PATH) if dir.endswith(".json")]
 
 tqdm_progress = tqdm(novel_file_list)
 for novel_file in tqdm_progress:
-    tqdm_progress.set_description(novel_file)
+    tqdm_progress.set_description(truncate_middle(novel_file, DISPLAY_FILE_NAME_LENGTH_LIMIT))
 
     with open(f"{NOVEL_PATH}/{novel_file}", "r", encoding="utf-8") as file:
         dataset: list[dict[str, str | list[str]]] = json.load(file)

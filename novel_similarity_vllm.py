@@ -9,6 +9,7 @@ from tqdm import tqdm
 from transformers import AutoTokenizer
 
 
+DISPLAY_FILE_NAME_LENGTH_LIMIT = 32
 VLLM_PROGRESS_BAR = False
 
 MAX_SENTENCE_LEN = 256
@@ -109,7 +110,7 @@ def sentence_segmentation(text: str):
     return sentences
 
 def similarity_distribution(sentences: list[str]):
-    sentences_token_count = [len(tokenizer(sentence, add_special_tokens=False)) for sentence in sentences]
+    sentences_token_count = [len(tokenizer(sentence, add_special_tokens=False)["input_ids"]) for sentence in sentences]
 
     contexts: list[str] = []
     for sentence_index in range(1, len(sentences)):
@@ -129,7 +130,7 @@ def similarity_distribution(sentences: list[str]):
         
         contexts.append(context)
 
-    sentences_backward = []
+    sentences_backward: list[str] = []
     for sentence_index in range(1, len(sentences)):
         backward_sentence = sentences[sentence_index]
         backward_sentence_token_count = sentences_token_count[sentence_index]
@@ -148,13 +149,13 @@ def similarity_distribution(sentences: list[str]):
         sentences_backward.append(backward_sentence)
 
     contexts_embeddings, sentences_embeddings = [
-        torch.tensor([
-            output.outputs.embedding 
+        [
+            torch.tensor(output.outputs.embedding) 
             for output in model.embed(
                 texts,
                 use_tqdm=VLLM_PROGRESS_BAR
             )
-        ])
+        ]
         for texts in [contexts, sentences_backward]
     ]
 
@@ -199,7 +200,7 @@ if __name__ == "__main__":
             dataset: list[dict[str, str]] = json.load(file)
 
         for data_index,  data in enumerate(dataset):
-            tqdm_progress.set_description(f"{data_index}/{len(dataset)} {truncate_middle(novel_file, 32)}")
+            tqdm_progress.set_description(f"{data_index}/{len(dataset)}|{truncate_middle(novel_file, DISPLAY_FILE_NAME_LENGTH_LIMIT)}")
 
             sentences = sentence_segmentation(data["content"])
             similarity = similarity_distribution(sentences)
