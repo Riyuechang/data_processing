@@ -201,9 +201,8 @@ for novel_file in tqdm_progress:
         chunks_to_be_processed: list[str] = []
         for index, (chunks, chunks_token_count, to_be_processed, chunk_index) in enumerate(text_chunks):
             if to_be_processed:
-                to_be_processed, chunk_index = small_chunk_merging(chunks, chunks_token_count)
-
-            text_chunks[index] = (chunks, chunks_token_count, to_be_processed, chunk_index)
+                new_to_be_processed, new_chunk_index = small_chunk_merging(chunks, chunks_token_count)
+                text_chunks[index] = (chunks, chunks_token_count, new_to_be_processed, new_chunk_index)
 
             if not to_be_processed:
                 continue
