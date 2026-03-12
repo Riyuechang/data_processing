@@ -45,7 +45,7 @@ SAVE_DIR_PATH = f"./translation/{NOVEL_NAME}"
 def vllm_add_request(input_text: str, request_id: str):
     if USE_GLOSSARY:
         glossary_list = [
-            f"{glossary['jp']}->{opencc_converter.convert(glossary['tw'])} #{opencc_converter.convert(glossary['info'])}" if glossary["info"] else f"{glossary['jp']}->{opencc_converter.convert(glossary['tw'])}"
+            f"{glossary['jp']}->{opencc_converter.convert(glossary['tw'])}" + f" #{opencc_converter.convert(glossary['info'])}" if glossary["info"] else ""
             for glossary in glossary_dict
             if [True for name_part in glossary['match'] if name_part in input_text]
         ]
@@ -89,11 +89,13 @@ engine_args = EngineArgs(
     max_num_batched_tokens=MAX_BATCHED_TOKENS,
     max_num_seqs=MAX_REQUESTS,
 
+    enable_chunked_prefill=True,
     enable_prefix_caching=True,
     enforce_eager=True,
     #swap_space=8,
     #max_seq_len_to_capture=8192,
     #cpu_offload_gb=1,
+    disable_log_stats=False
 )
 llm_engine = LLMEngine.from_engine_args(engine_args)
 tokenizer = AutoTokenizer.from_pretrained(TOKENIZER_PATH)
