@@ -12,6 +12,7 @@ TEMPERATURE = 0.7
 TOP_K =20
 TOP_P = 0.8
 MIN_P = 0.0
+PRESENCE_PENALTY = 1.5
 #FREQUENCY_PENALTY = 0.2
 
 MAX_TOKENS = 8192 #6144
@@ -19,6 +20,9 @@ MAX_REQUESTS = 16
 MAX_BATCHED_TOKENS = 32768
 VRAM_UTILIZATION = 0.95
 
+DISPLAY_FILE_NAME_LENGTH_LIMIT = 32
+
+#MODEL_NAME = "Qwen3.5-27B-AWQ"
 MODEL_NAME = "Qwen3-30B-A3B-Instruct-2507-AWQ-4bit"
 MODEL_PATH = f"/media/ifw/GameFile/linux_cache/LLMModel/{MODEL_NAME}"
 
@@ -34,13 +38,25 @@ PROPMT_PATH = "./jp_tw_llm_alignment_check_propmt.md"
 SAVE_DIR_PATH = f"/media/ifw/GameFile/linux_cache/data_processed/{NOVEL_NAME}_llm_alignment_check"
 
 
+def truncate_middle(text: str, max_length: int, ellipsis: str ="..."):
+    if len(text) <= max_length:
+        return text
+
+    remaining_len = max_length - len(ellipsis)
+
+    front_len = remaining_len // 2
+    back_len = remaining_len - front_len
+
+    return text[:front_len] + ellipsis + text[-back_len:]
+
 def vllm_add_request(input_text: str, request_id: str):
     prompt = tokenizer.apply_chat_template(
         [
             {"role": "user", "content": input_text}
         ], 
         add_generation_prompt=True, 
-        tokenize=False
+        tokenize=False,
+        enable_thinking=False
     )
 
     llm_engine.add_request(
@@ -50,78 +66,86 @@ def vllm_add_request(input_text: str, request_id: str):
     )
 
 
-with open(PROPMT_PATH, "r", encoding="utf-8") as file:
-    alignment_propmt = file.read()
+if __name__ == '__main__':
+    with open(PROPMT_PATH, "r", encoding="utf-8") as file:
+        alignment_propmt = file.read()
 
-generation_parameters = SamplingParams(
-    max_tokens=MAX_TOKENS,
-    temperature=TEMPERATURE,
-    top_k=TOP_K,
-    top_p=TOP_P,
-    min_p=MIN_P,
-    #frequency_penalty=FREQUENCY_PENALTY,
-    #seed=None
-)
-engine_args = EngineArgs(
-    model=MODEL_PATH, 
-    tokenizer=TOKENIZER_PATH,
-    #dtype=torch.float16, 
-    #quantization="bitsandbytes", 
-    #load_format="bitsandbytes",
-    gpu_memory_utilization=VRAM_UTILIZATION,
-    max_model_len=MAX_TOKENS,
-    max_num_batched_tokens=MAX_BATCHED_TOKENS,
-    max_num_seqs=MAX_REQUESTS,
-    enable_prefix_caching=True,
-    enforce_eager=True,
-    #swap_space=8,
-    #max_seq_len_to_capture=8192,
-    #cpu_offload_gb=1,
-)
-llm_engine = LLMEngine.from_engine_args(engine_args)
-tokenizer = AutoTokenizer.from_pretrained(TOKENIZER_PATH)
+    generation_parameters = SamplingParams(
+        max_tokens=MAX_TOKENS,
+        temperature=TEMPERATURE,
+        top_k=TOP_K,
+        top_p=TOP_P,
+        min_p=MIN_P,
+        #presence_penalty=PRESENCE_PENALTY,
+        #frequency_penalty=FREQUENCY_PENALTY,
+        #seed=None
+    )
+    engine_args = EngineArgs(
+        model=MODEL_PATH, 
+        tokenizer=TOKENIZER_PATH,
 
-if not os.path.isdir(SAVE_DIR_PATH):
-    os.mkdir(SAVE_DIR_PATH)
+        #dtype=torch.float16, 
+        #quantization="bitsandbytes", 
+        #load_format="bitsandbytes",
 
-novel_file_list = [dir for dir in os.listdir(NOVEL_PATH) if dir.endswith(".json")]
+        gpu_memory_utilization=VRAM_UTILIZATION,
+        max_model_len=MAX_TOKENS,
+        max_num_batched_tokens=MAX_BATCHED_TOKENS,
+        max_num_seqs=MAX_REQUESTS,
 
-tqdm_progress = tqdm(novel_file_list)
-for novel_file in tqdm_progress:
-    tqdm_progress.set_description(novel_file)
+        language_model_only=True,
+        enable_chunked_prefill=True,
+        enable_prefix_caching=True,
+        enforce_eager=True,
+        #swap_space=8,
+        #max_seq_len_to_capture=8192,
+        #cpu_offload_gb=1,
+        #disable_log_stats=False
+    )
+    llm_engine = LLMEngine.from_engine_args(engine_args)
+    tokenizer = AutoTokenizer.from_pretrained(TOKENIZER_PATH)
 
-    with open(f"{NOVEL_PATH}/{novel_file}", "r", encoding="utf-8") as file:
-        dataset: list[dict[str, str | list[dict[str, str]]]] = json.load(file)
+    if not os.path.isdir(SAVE_DIR_PATH):
+        os.mkdir(SAVE_DIR_PATH)
 
-    for chapter_index, chapter in enumerate(dataset):
-        for chunk_index, chunk in enumerate(chapter["alignment"]):
-            vllm_add_request(
-                input_text=alignment_propmt.format(jp=chunk["jp"], tw=chunk["tw"]),
-                request_id=f"{chapter_index}:{chunk_index}"
-            )
+    novel_file_list = [dir for dir in os.listdir(NOVEL_PATH) if dir.endswith(".json")]
 
-    not_pass_tag = ""
-    while True:
-        request = llm_engine.step()
+    tqdm_progress = tqdm(novel_file_list)
+    for novel_file in tqdm_progress:
+        tqdm_progress.set_description(truncate_middle(novel_file, DISPLAY_FILE_NAME_LENGTH_LIMIT))
 
-        for output in request:
-            if not output.finished:
-                continue
+        with open(f"{NOVEL_PATH}/{novel_file}", "r", encoding="utf-8") as file:
+            dataset: list[dict[str, str | list[dict[str, str]]]] = json.load(file)
 
-            llm_response = output.outputs[0].text
-            answer = re.findall(r"<answer>\n(True|False)\n</answer>", llm_response)
-            answer = answer[-1] if answer else "True_NoAnswer"
+        for chapter_index, chapter in enumerate(dataset):
+            for chunk_index, chunk in enumerate(chapter["alignment"]):
+                vllm_add_request(
+                    input_text=alignment_propmt.format(jp=chunk["jp"], tw=chunk["tw"]),
+                    request_id=f"{chapter_index}:{chunk_index}"
+                )
 
-            if "True" in answer:
-                not_pass_tag = "not_pass_"
+        not_pass_tag = ""
+        while True:
+            request = llm_engine.step()
 
-            chapter_index, chunk_index = output.request_id.split(":")
+            for output in request:
+                if not output.finished:
+                    continue
 
-            dataset[int(chapter_index)]["alignment"][int(chunk_index)]["llm_response"] = llm_response if "True" in answer else ""
-            dataset[int(chapter_index)]["alignment"][int(chunk_index)]["unaligned"] = answer
+                llm_response = output.outputs[0].text
+                answer = re.findall(r"<answer>\n(True|False)\n</answer>", llm_response)
+                answer = answer[-1] if answer else "True_NoAnswer"
 
-        if not llm_engine.has_unfinished_requests():
-            break
+                if "True" in answer:
+                    not_pass_tag = "not_pass_"
 
-    with open(f"{SAVE_DIR_PATH}/{not_pass_tag}{novel_file}", 'w', encoding='utf-8') as file:
-        json.dump(dataset, file, indent=4, ensure_ascii=False)
+                chapter_index, chunk_index = output.request_id.split(":")
+
+                dataset[int(chapter_index)]["alignment"][int(chunk_index)]["llm_response"] = llm_response if "True" in answer else ""
+                dataset[int(chapter_index)]["alignment"][int(chunk_index)]["unaligned"] = answer
+
+            if not llm_engine.has_unfinished_requests():
+                break
+
+        with open(f"{SAVE_DIR_PATH}/{not_pass_tag}{novel_file}", 'w', encoding='utf-8') as file:
+            json.dump(dataset, file, indent=4, ensure_ascii=False)
